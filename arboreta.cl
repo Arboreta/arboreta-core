@@ -7,6 +7,21 @@
 
 (in-package arboreta)
 
+;; TODO & NOTES
+;; can we blit windows, or do they just have to be redrawn?
+;; does normal pango layouts allow for smooth scolling?
+;; text selection is going to be really weird, if implemented
+;;   can we pull the font height from pango or fc for highlighting?
+;;   how do we change the cursor to the text selection one?
+;;     do we even have a cursor in wm mode?
+;;   "worse is better" solution
+;;     use internal clipboard, disregard people trying to use the applications by themselves
+;;   alternative ("the right thing") solutions
+;;     try to interface with x font rendering
+;;       that means the main clipboard would need to be used
+;;       using cl-x, probably
+;;     switch platforms -- low preference
+
 (defparameter context nil)
 (defparameter surface nil)
 (defparameter layout nil)
@@ -19,13 +34,13 @@
    (attributes (make-hash-table :test #'eq))
    (draw nil))
 
-(defun call-draw (window)
+(defun draw (window)
    (funcall (window-draw window) window))
 
 (defun draw-subwindows (window)
    (awhen (gethash 'subwindows (window-attributes window))
           (iter (for x in it)
-                (call-draw x))))
+                (draw x))))
 
 (defparameter root-window 
    (make-window :draw 
@@ -49,11 +64,22 @@
 
 ;; sleeps so that it doesn't eat all the CPU, need some way to limit drawing or something
 (defun window-update-loop ()
-   (iter (call-draw root-window)
+   (iter (draw root-window)
          (flush-surface)
          (sleep 0.05)))
 
 (defun unicode-test ()
+   (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
+   (setf font (pango:pango_font_description_from_string "Fantasque sans mono 10"))
+   (pango:pango_layout_set_font_description layout font)
+   
+   (set-source-rgb 37/255 46/255 50/255)
+   (rectangle 0 0 w h)
+   (fill-path)
+   (new-path)
+   (move-to 0 0)
+   (set-source-rgb 148/255 163/255 165/255)
+         
    (pango:pango_layout_set_text layout 
      (format nil "~{~a~%~}" 
        '("Hello, glorious pango text rendering!"
@@ -63,13 +89,14 @@
          "ಬಾ ಇಲ್ಲಿ ಸಂಭವಿಸು ಇಂದೆನ್ನ ಹೃದಯದಲಿ "
          "मैं काँच खा सकता हूँ और मुझे उससे कोई चोट नहीं पहुंचती "))
      -1)
+
    (pango-update)
    (flush-surface))
 
 ;; you might not have this font, change it to a good non-bitmap monospaced font you do have.
 (defun update-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
-   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
+   (setf font (pango:pango_font_description_from_string "Fantasque sans mono 10"))
    (pango:pango_layout_set_font_description layout font)
 
    (iter (with str = "Once upon a midnight dreary, while I pondered, weak and weary...")
@@ -102,7 +129,7 @@
    (setf context (create-xlib-image-context w h :window-name "pango-test"))
    (setf surface (get-target context))
    (with-context (context)
-      (windowing-test)))
+      (update-test)))
 
 (defun main ()
   (sb-thread:make-thread 'create-xlib-window :name "rendering-thread")
