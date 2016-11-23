@@ -2,8 +2,13 @@
 
 A userspace and IDE inspired by those monolothic systems as found in the Symbolics Lisp Machines, Pharo Smalltalk, or Project Oberon; realized in Common Lisp atop a Linux host.
 
-
 # Current Roadmap:
+
+* Better methods for closing the xlib window
+* text rendering in windows
+* frame drawing limitations
+* load xkb for keyboard handling
+* xlib for the mouse?
 
 * FFI for freetype-gl font rendering
 * listener REPL ala swank
