@@ -8,6 +8,7 @@
 (in-package arboreta)
 
 ;; TODO & NOTES
+;; find a way to fix the screen tearing issue
 ;; can we blit windows, or do they just have to be redrawn?
 ;; does normal pango layouts allow for smooth scolling?
 ;; text selection is going to be really weird, if implemented
@@ -27,8 +28,8 @@
 (defparameter layout nil)
 (defparameter font nil)
 
-(defparameter w 1200)
-(defparameter h 800)
+(defparameter w 600)
+(defparameter h 400)
 
 (defstruct window
    (attributes (make-hash-table :test #'eq))
@@ -62,11 +63,13 @@
    (surface-flush surface)
    (cairo::sync context))
 
-;; sleeps so that it doesn't eat all the CPU, need some way to limit drawing or something
 (defun window-update-loop ()
-   (iter (draw root-window)
+   (iter (for x = (get-internal-real-time))
+         (for y = (+ x 33))
+         (draw root-window)
          (flush-surface)
-         (sleep 0.05)))
+         (sleep (let ((a (/ (- y (get-internal-real-time)) 1000)))
+                      (if (> a 0) a 0)))))
 
 (defun unicode-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
@@ -93,33 +96,50 @@
    (pango-update)
    (flush-surface))
 
+(defparameter raven "Once upon a midnight dreary, while I pondered, weak and weary...")
+
 ;; you might not have this font, change it to a good non-bitmap monospaced font you do have.
 (defun update-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
    (setf font (pango:pango_font_description_from_string "Fantasque sans mono 10"))
    (pango:pango_layout_set_font_description layout font)
 
-   (iter (with str = "Once upon a midnight dreary, while I pondered, weak and weary...")
-         (for x from 0 to (length str))
+   (iter (for x from 0 to (length raven))
          (set-source-rgb 37/255 46/255 50/255)
          (rectangle 0 0 w h)
          (fill-path)
          (new-path)
          (move-to 0 0)
          (set-source-rgb 148/255 163/255 165/255)
-         (pango:pango_layout_set_text layout (subseq str 0 x) -1)
+         (pango:pango_layout_set_text layout (subseq raven 0 x) -1)
          (pango-update)
          (flush-surface)
          (sleep 0.1)))
 
+(defparameter index 0)
+(defparameter timer 0)
+
 (defun windowing-test ()
+   (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
+   (setf font (pango:pango_font_description_from_string "Fantasque sans mono 10"))
+   (pango:pango_layout_set_font_description layout font)
+   
    (add-as-subwindow
       (make-window :draw
-         (lambda (window) 
+         (lambda (window)
+            (incf timer) 
             (new-path)
             (set-source-rgb 47/255 56/255 60/255)
-            (rectangle 20 20 (- w 40) (- h 40))
+            (rectangle 20 (+ 20 (* 0.7 h (sin (/ timer 10)))) (- w 40) (- h 40))
             (fill-path)
+            
+            (new-path)
+            (move-to 20 (+ 20 (* 0.7 h (sin (/ timer 10)))))
+            (set-source-rgb 148/255 163/255 165/255)
+            (if (< index (length raven)) (incf index))
+            (pango:pango_layout_set_text layout (subseq raven 0 index) -1)
+            (pango-update)
+            
             (draw-subwindows window)))
       root-window)   
    (window-update-loop))
@@ -129,7 +149,7 @@
    (setf context (create-xlib-image-context w h :window-name "pango-test"))
    (setf surface (get-target context))
    (with-context (context)
-      (update-test)))
+      (windowing-test)))
 
 (defun main ()
   (sb-thread:make-thread 'create-xlib-window :name "rendering-thread")
@@ -138,5 +158,5 @@
   (cairo:destroy context)
   (sb-ext:exit))
 
-;;(sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
+;; (sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
 (main)
