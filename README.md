@@ -8,7 +8,8 @@ A userspace and IDE inspired by those monolothic systems as found in the Symboli
 * text rendering in windows
 * frame drawing limitations
 * load xkb for keyboard handling
-* xlib for the mouse?
+* xlib for the mouse
+* window resizing, also xlib
 
 * FFI for freetype-gl font rendering
 * listener REPL ala swank

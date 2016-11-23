@@ -39,12 +39,20 @@
 (defun add-as-subwindow (source-window target-window)
    (push source-window (gethash 'subwindows (window-attributes target-window))))
 
+(defparameter test-r 37/255)
+(defparameter test-g 46/255)
+(defparameter test-b 50/255)
+
+(defun color-normalize (x)
+   (/ (mod x 255) 255))
+
 (add-as-subwindow
    (make-window :draw
       (lambda (window) 
          (new-path)
-         (set-source-rgb 50/255 55/255 60/255)
-         (rectangle 20 20 200 400)
+         (incf test-r 1) (incf test-g 2) (incf test-b 3)
+         (set-source-rgb (color-normalize test-r) (color-normalize test-g) (color-normalize test-b))
+         (rectangle 20 20 (- w 40) (- h 40))
          (fill-path)
          (draw-subwindows window)))
    root-window)
@@ -100,19 +108,12 @@
    (setf surface (get-target context))
    
    (with-context (context)
-      (set-source-rgb 37/255 46/255 50/255)
-      (rectangle 0 0 w h)
-      (fill-path)
-
       ;; had to do it without the helper macros, because they cause context errors for some reason
 
       (window-update-loop)
    
-      (princ "press enter here to exit")
-      (finish-output)
-      (when (read-line)
-         (cairo:destroy context)
-         (sb-ext:exit))))
+      (cairo:destroy context)
+      (sb-ext:exit)))
 
 ;;(sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
 (main)
