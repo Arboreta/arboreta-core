@@ -12,8 +12,8 @@
 (defparameter layout nil)
 (defparameter font nil)
 
-(defparameter w 600)
-(defparameter h 400)
+(defparameter w 1200)
+(defparameter h 800)
 
 (defstruct window
    (attributes (make-hash-table :test #'eq))
@@ -39,24 +39,6 @@
 (defun add-as-subwindow (source-window target-window)
    (push source-window (gethash 'subwindows (window-attributes target-window))))
 
-(defparameter test-r 37/255)
-(defparameter test-g 46/255)
-(defparameter test-b 50/255)
-
-(defun color-normalize (x)
-   (/ (mod x 255) 255))
-
-(add-as-subwindow
-   (make-window :draw
-      (lambda (window) 
-         (new-path)
-         (incf test-r 1) (incf test-g 2) (incf test-b 3)
-         (set-source-rgb (color-normalize test-r) (color-normalize test-g) (color-normalize test-b))
-         (rectangle 20 20 (- w 40) (- h 40))
-         (fill-path)
-         (draw-subwindows window)))
-   root-window)
-
 (defun pango-update ()
    (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) layout)
    (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) layout))
@@ -64,6 +46,12 @@
 (defun flush-surface ()
    (surface-flush surface)
    (cairo::sync context))
+
+;; sleeps so that it doesn't eat all the CPU, need some way to limit drawing or something
+(defun window-update-loop ()
+   (iter (call-draw root-window)
+         (flush-surface)
+         (sleep 0.05)))
 
 (defun unicode-test ()
    (pango:pango_layout_set_text layout 
@@ -97,23 +85,31 @@
          (flush-surface)
          (sleep 0.1)))
 
-;; sleeps so that it doesn't eat all the CPU, need some way to limit drawing or something
-(defun window-update-loop ()
-   (iter (call-draw root-window)
-         (sleep 0.05)
-         (flush-surface)))
+(defun windowing-test ()
+   (add-as-subwindow
+      (make-window :draw
+         (lambda (window) 
+            (new-path)
+            (set-source-rgb 47/255 56/255 60/255)
+            (rectangle 20 20 (- w 40) (- h 40))
+            (fill-path)
+            (draw-subwindows window)))
+      root-window)   
+   (window-update-loop))
 
-(defun main ()
+;; had to do it without the helper macros, because they cause context errors for some reason
+(defun create-xlib-window ()
    (setf context (create-xlib-image-context w h :window-name "pango-test"))
    (setf surface (get-target context))
-   
    (with-context (context)
-      ;; had to do it without the helper macros, because they cause context errors for some reason
+      (windowing-test)))
 
-      (window-update-loop)
-   
-      (cairo:destroy context)
-      (sb-ext:exit)))
+(defun main ()
+  (sb-thread:make-thread 'create-xlib-window :name "rendering-thread")
+  
+  (read-line)
+  (cairo:destroy context)
+  (sb-ext:exit))
 
 ;;(sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
 (main)

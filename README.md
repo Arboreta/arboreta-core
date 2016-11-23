@@ -4,14 +4,17 @@ A userspace and IDE inspired by those monolothic systems as found in the Symboli
 
 # Current Roadmap:
 
-* Better methods for closing the xlib window
+* Better method for closing the xlib window
 * text rendering in windows
 * frame drawing limitations
 * load xkb for keyboard handling
 * xlib for the mouse
 * window resizing, also xlib
+* test in wm mode
+* figure out how to get screen dimensions for wm mode?
 
-* FFI for freetype-gl font rendering
+# Near Future:
+
 * listener REPL ala swank
 * symbol translation table layer
 * (discuss) importing/managing CL libraries, files
