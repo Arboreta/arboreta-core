@@ -169,8 +169,11 @@ background-color is not nil, the window will be painted with it."
                    ;; remember to update cursor position from here as well
                    ((or (= type 2)) ;; type 3 for release
                     (with-foreign-slots ((state keycode x y) xev xkeyevent)
-                     (print (list state (xkeysym->string (xkeycode->keysym display keycode 0))))
-                     (finish-output))))))))
+                     (let ((code (xkeycode->keysym display keycode state)))
+                        (alexandria::appendf arboreta::*key-events* 
+                           (list (if (zerop code) 
+                                     (arboreta::make-keypress :mods state :code (xkeycode->keysym display keycode 0) :str nil)
+                                     (arboreta::make-keypress :mods state :code code :str (xkeysym->string code)))))))))))))
        ;; close down everything
        (with-slots (display pixmap window signal-window pointer
                               xlib-context dest-surface)
@@ -203,6 +206,7 @@ background-color is not nil, the window will be painted with it."
 (in-package arboreta)
 
 ;; TODO & NOTES
+;; fix the actual executable client threading issues!!!!!
 ;; find a way to fix the screen tearing issue
 ;; can we blit windows, or do they just have to be redrawn?
 ;; does normal pango layouts allow for smooth scolling?
@@ -219,6 +223,9 @@ background-color is not nil, the window will be painted with it."
 ;;     switch platforms -- low preference
 
 (defparameter std-out *standard-output*)
+
+(defstruct keypress mods code str)
+(defparameter *key-events* nil)
 
 (defparameter context nil)
 (defparameter surface nil)
@@ -341,19 +348,50 @@ background-color is not nil, the window will be painted with it."
       root-window)   
    (window-update-loop))
 
-;; had to do it without the helper macros, because they cause context errors for some reason
-(defun create-xlib-window ()
-   (setf context (create-xlib-image-context w h :window-name "pango-test"))
-   (setf surface (get-target context))
-   (with-context (context)
-      (windowing-test)))
+(defparameter *typing-buffer* "")
 
-(defun main ()
-  (sb-thread:make-thread 'create-xlib-window :name "rendering-thread")
-  
-  (read-line)
-  (cairo:destroy context)
-  (sb-ext:exit))
+(defun buffer-append (str)
+   (setf *typing-buffer* (concatenate 'string *typing-buffer* str)))
 
-;; (sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
-(main)
+;; todo 
+;;  factor out handling of typing buffer and keypress events to another thread, so this can update multiple times
+(defun typing-test ()
+   (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
+   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
+   (pango:pango_layout_set_font_description layout font)
+   
+   (add-as-subwindow
+      (make-window :draw
+         (lambda (window) 
+            (if *key-events*
+               (let ((kev (pop *key-events*)))
+                     (print kev)
+                     (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
+                           (cairo:destroy context)
+                           (sb-ext:exit))
+                     (alexandria::switch ((keypress-str kev) :test #'equalp) 
+                        ("Return" (buffer-append (format nil "~%")))
+                        ("Shift_L" nil)
+                        ("Control_L" nil)
+                        ("Control_R" nil)
+                        ("Shift_R" nil)
+                        ("BackSpace" (when (> (length *typing-buffer*) 0) 
+                                           (setf *typing-buffer* (subseq *typing-buffer* 0 (- (length *typing-buffer*) 1)))))
+                        (otherwise (buffer-append (if (> (length (keypress-str kev)) 1) 
+                                                      (string (code-char (keypress-code kev))) 
+                                                      (keypress-str kev)))))))
+
+            (new-path)
+            (set-source-rgb 47/255 56/255 60/255)
+            (rectangle 20 20 (- w 40) (- h 40))
+            (fill-path)
+               
+            (new-path)
+            (move-to 20 20)
+            (set-source-rgb 148/255 163/255 165/255)
+            (pango:pango_layout_set_text layout *typing-buffer* -1)
+            (pango-update)
+            
+            (draw-subwindows window)))
+      root-window)   
+   (window-update-loop))

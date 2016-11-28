@@ -16,7 +16,6 @@ format to use, for the font in question.
 * text rendering in windows
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
 * frame drawing limitations
-* load xkb for keyboard handling
 * xlib for the mouse
 * window resizing, also xlib
 * test in wm mode
