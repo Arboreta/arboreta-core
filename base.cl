@@ -365,7 +365,6 @@ background-color is not nil, the window will be painted with it."
          (lambda (window) 
             (if *key-events*
                (let ((kev (pop *key-events*)))
-                     (print kev)
                      (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
                            (cairo:destroy context)
                            (sb-ext:exit))

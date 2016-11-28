@@ -8,11 +8,4 @@
    (with-context (context)
       (typing-test)))
 
-(defun main ()
-  (sb-thread:make-thread 'toplevel-start-render :name "rendering-thread")
-  
-  (read-line)
-  (cairo:destroy context)
-  (sb-ext:exit))
-
-(sb-ext:save-lisp-and-die "arboreta" :toplevel #'main :executable t)
+(sb-ext:save-lisp-and-die "arboreta" :toplevel #'toplevel-start-render :executable t)

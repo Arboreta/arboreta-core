@@ -8,11 +8,4 @@
    (with-context (context)
       (typing-test)))
 
-(defun main ()
-  (sb-thread:make-thread 'toplevel-start-render :name "rendering-thread")
-  
-  (read-line)
-  (cairo:destroy context)
-  (sb-ext:exit))
-
-(main)
+(toplevel-start-render)
