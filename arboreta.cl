@@ -18,7 +18,7 @@
   (window window)
   (root window)
   (subwindow window)
-  (time :int)
+  (time :long)
   (x :int)
   (y :int)
   (x-root :int)
@@ -34,7 +34,7 @@
   (window window)
   (root window)
   (subwindow window)
-  (time :int)
+  (time :long)
   (x :int)
   (y :int)
   (x-root :int)
@@ -42,30 +42,39 @@
   (state :int)
   (keycode :int))
 
+(defcfun ("XKeycodeToKeysym" xkeycode->keysym) :int
+  (display display)
+  (keycode :int)
+  (index :int))
+
+(defcfun ("XKeysymToString" xkeysym->string) :string
+  (keysym :int))
+
 ;; copied from cl-cairo2-xlib, redefined
-(defun create-xlib-image-context (width height &key
-              (display-name nil) 
-              (window-name (next-xlib-image-context-name))
-              (background-color +white+))
+(defun create-xlib-image-context 
+   (width height &key (display-name nil) 
+                      (window-name (next-xlib-image-context-name))
+                      (background-color +white+))
   "Create a window mapped to an xlib-image-context, with given width,
 height (non-resizable) and window-name on display-name.  If
 background-color is not nil, the window will be painted with it."
   (let ((display (xopendisplay (if display-name display-name (null-pointer)))))
     (when (null-pointer-p display)
-      (error "couldn't open display ~a" display-name))
-    (let ((xlib-image-context (make-instance 'xlib-image-context
-                    :display display
-                    :width width
-                    :height height
-                    :pixel-based-p t
-                    :background-color background-color))
+          (error "couldn't open display ~a" display-name))
+    (let ((xlib-image-context 
+            (make-instance 'xlib-image-context
+              :display display
+              :width width
+              :height height
+              :pixel-based-p t
+              :background-color background-color))
           initialization-done?)
       (labels ( ;; Repaint the xlib context with the image surface
           ;; (previously set as source during initialization.
           (refresh ()
-                 (with-slots (context dest-surface) xlib-image-context
-                   (cairo_paint (xlib-context xlib-image-context))
-                   (cairo_surface_flush dest-surface)))
+            (with-slots (context dest-surface) xlib-image-context
+              (cairo_paint (xlib-context xlib-image-context))
+              (cairo_surface_flush dest-surface)))
           ;; The main event loop, started as a separate thread
           ;; when initialization is complete.  The main thread is
           ;; supposed to communicate with this one via X signals
@@ -138,7 +147,6 @@ background-color is not nil, the window will be painted with it."
                ;; decipher structure, at least partially
                (with-foreign-slots ((type window serial) xev xanyevent)
                  ;; action based on event type
-                 (if (not (or (= type 33) (= type 12) (= type 65))) (print type))
                  (cond
                    ;; expose events
                    ((and (= type 12) (= window this-window))
@@ -156,7 +164,13 @@ background-color is not nil, the window will be painted with it."
                          (setf got-close-signal t))
                         ((and (= window signal-window)
                               (= data0 +refresh-message+))
-                         (refresh))))))))))
+                         (refresh)))))
+                   ;; key press and release events
+                   ;; remember to update cursor position from here as well
+                   ((or (= type 2)) ;; type 3 for release
+                    (with-foreign-slots ((state keycode x y) xev xkeyevent)
+                     (print (list state (xkeysym->string (xkeycode->keysym display keycode 0))))
+                     (finish-output))))))))
        ;; close down everything
        (with-slots (display pixmap window signal-window pointer
                               xlib-context dest-surface)
