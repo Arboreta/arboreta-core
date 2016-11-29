@@ -164,7 +164,8 @@ background-color is not nil, the window will be painted with it."
                          (setf got-close-signal t))
                         ((and (= window signal-window)
                               (= data0 +refresh-message+))
-                         (refresh)))))
+                         (refresh)
+                         ))))
                    ;; key press and release events
                    ;; remember to update cursor position from here as well
                    ((or (= type 2)) ;; type 3 for release
@@ -202,6 +203,29 @@ background-color is not nil, the window will be painted with it."
    (sync xlib-image-context))
       ;; return context
       xlib-image-context)))
+
+(defun send-message-to-signal-window (xlib-image-context message)
+  "Send the desired message to the context window."
+  (with-slots (pointer (display-pointer display) signal-window) xlib-image-context
+    (unless pointer
+      (warn "context is not active, can't send message to window")
+      (sb-ext:exit)
+      (return-from send-message-to-signal-window))
+    ;; (xlockdisplay display-pointer)
+    (with-foreign-object (xev :long 24)
+      (with-foreign-slots 
+          ((type display window message-type format data0) 
+           xev xclientmessageevent)
+        (setf type 33)                  ; clientnotify
+        (setf display display-pointer)
+        (setf window signal-window)
+        (setf message-type 0)
+        (setf format 32)
+        (setf data0 message)
+        (check-zero-status (xsendevent display-pointer signal-window 0 0 xev)))
+      (xflush display-pointer)
+      ;; (xsync display-pointer 0)
+      )))
 
 (in-package arboreta)
 
@@ -269,7 +293,7 @@ background-color is not nil, the window will be painted with it."
 
 (defun window-update-loop ()
    (iter (for x = (get-internal-real-time))
-         (for y = (+ x 33))
+         (for y = (+ x 33)) ;; 30 FPS
          (draw root-window)
          (flush-surface)
          (sleep (let ((a (/ (- y (get-internal-real-time)) 1000)))
@@ -353,33 +377,35 @@ background-color is not nil, the window will be painted with it."
 (defun buffer-append (str)
    (setf *typing-buffer* (concatenate 'string *typing-buffer* str)))
 
-;; todo 
-;;  factor out handling of typing buffer and keypress events to another thread, so this can update multiple times
+(defun handle-key-events-test ()
+   (iter
+      (if *key-events*
+         (let ((kev (pop *key-events*)))
+               (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
+                     (cairo:destroy context)
+                     (sb-ext:exit))
+               (alexandria::switch ((keypress-str kev) :test #'equalp) 
+                  ("Return" (buffer-append (format nil "~%")))
+                  ("Shift_L" nil)
+                  ("Control_L" nil)
+                  ("Control_R" nil)
+                  ("Shift_R" nil)
+                  ("BackSpace" (when (> (length *typing-buffer*) 0) 
+                                     (setf *typing-buffer* (subseq *typing-buffer* 0 (- (length *typing-buffer*) 1)))))
+                  (otherwise (buffer-append (if (> (length (keypress-str kev)) 1) 
+                                                (string (code-char (keypress-code kev))) 
+                                                (keypress-str kev)))))))))
+
 (defun typing-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
    (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
    (pango:pango_layout_set_font_description layout font)
    
+   (sb-thread:make-thread 'handle-key-events-test :name "keyevents-thread")
+
    (add-as-subwindow
       (make-window :draw
          (lambda (window) 
-            (if *key-events*
-               (let ((kev (pop *key-events*)))
-                     (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
-                           (cairo:destroy context)
-                           (sb-ext:exit))
-                     (alexandria::switch ((keypress-str kev) :test #'equalp) 
-                        ("Return" (buffer-append (format nil "~%")))
-                        ("Shift_L" nil)
-                        ("Control_L" nil)
-                        ("Control_R" nil)
-                        ("Shift_R" nil)
-                        ("BackSpace" (when (> (length *typing-buffer*) 0) 
-                                           (setf *typing-buffer* (subseq *typing-buffer* 0 (- (length *typing-buffer*) 1)))))
-                        (otherwise (buffer-append (if (> (length (keypress-str kev)) 1) 
-                                                      (string (code-char (keypress-code kev))) 
-                                                      (keypress-str kev)))))))
-
             (new-path)
             (set-source-rgb 47/255 56/255 60/255)
             (rectangle 20 20 (- w 40) (- h 40))
@@ -389,6 +415,60 @@ background-color is not nil, the window will be painted with it."
             (move-to 20 20)
             (set-source-rgb 148/255 163/255 165/255)
             (pango:pango_layout_set_text layout *typing-buffer* -1)
+            (pango-update)
+            
+            (draw-subwindows window)))
+      root-window)   
+   (window-update-loop))
+
+(defparameter *repl-buffer* "> ")
+(defparameter *current-input* "")
+
+(defun repl-append (str)
+   (setf *repl-buffer* (concatenate 'string *repl-buffer* str))
+   (setf *current-input* (concatenate 'string *current-input* str)))
+
+(defun handle-repl-key-events ()
+   (iter
+      (if *key-events*
+         (let ((kev (pop *key-events*)))
+               (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
+                     (cairo:destroy context)
+                     (sb-ext:exit))
+               (alexandria::switch ((keypress-str kev) :test #'equalp) 
+                  ("Return" (repl-append (format nil "~%~a~%> " (ignore-errors (eval (read-from-string *current-input*)))))
+                            (finish-output)
+                            (setf *current-input* ""))
+                  ("Shift_L" nil)
+                  ("Control_L" nil)
+                  ("Control_R" nil)
+                  ("Shift_R" nil)
+                  ("BackSpace" (when (> (length *current-input*) 0) 
+                                     (setf *current-input* (subseq *current-input* 0 (- (length *current-input*) 1)))
+                                     (setf *repl-buffer* (subseq *repl-buffer* 0 (- (length *repl-buffer*) 1)))))
+                  (otherwise (repl-append (if (> (length (keypress-str kev)) 1) 
+                                                (string (code-char (keypress-code kev))) 
+                                                (keypress-str kev)))))))))
+
+(defun repl-test ()
+   (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
+   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
+   (pango:pango_layout_set_font_description layout font)
+   
+   (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
+
+   (add-as-subwindow
+      (make-window :draw
+         (lambda (window) 
+            (new-path)
+            (set-source-rgb 47/255 56/255 60/255)
+            (rectangle 20 20 (- w 40) (- h 40))
+            (fill-path)
+               
+            (new-path)
+            (move-to 20 20)
+            (set-source-rgb 148/255 163/255 165/255)
+            (pango:pango_layout_set_text layout *repl-buffer* -1)
             (pango-update)
             
             (draw-subwindows window)))
