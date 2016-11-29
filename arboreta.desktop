@@ -1,0 +1,6 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Arboreta
+# these two need to be the path to the session manager file
+Exec=/home/arathnim/repos/arboreta-core/arboreta-session-manager.sh
+TryExec=/home/arathnim/repos/arboreta-core/arboreta-session-manager.sh

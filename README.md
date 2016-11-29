@@ -12,17 +12,16 @@ format to use, for the font in question.
 
 # Current Roadmap:
 
-* Better method for closing the xlib window
-* text rendering in windows
+* window clipping
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
-* frame drawing limitations
+* frame drawing limitations/fix flicker issues
 * xlib for the mouse
 * window resizing, also xlib
-* test in wm mode
 * figure out how to get screen dimensions for wm mode?
 
 # Near Future:
 
+* install script that auto-generates the sesssion manager and desktop files
 * listener REPL ala swank
 * symbol translation table layer
 * (discuss) importing/managing CL libraries, files
