@@ -3,7 +3,8 @@
 (in-package arboreta)
 
 (defun toplevel-start-render ()
-   (setf context (create-xlib-image-context w h :window-name "arboreta"))
+	;; (setf cairo::event-handling-function )
+   (setf context (cairo::create-arboreta-window w h))
    (setf surface (get-target context))
    (with-context (context)
       (repl-test)))

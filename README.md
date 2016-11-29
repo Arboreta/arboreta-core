@@ -14,7 +14,6 @@ format to use, for the font in question.
 
 * window clipping
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
-* frame drawing limitations/fix flicker issues
 * xlib for the mouse
 * window resizing, also xlib
 * figure out how to get screen dimensions for wm mode?
