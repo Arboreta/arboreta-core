@@ -157,7 +157,8 @@
          ;; end of initialization
          (setf initialization-done? t)
          ;; EVENT LOOP
-         (funcall event-handling-function xlib-image-context))
+         (funcall event-handling-function xlib-image-context)
+         )
    ;; close down everything
    (with-slots (display pixmap window signal-window pointer xlib-context dest-surface) xlib-image-context
      (xsynchronize display 1)
@@ -259,14 +260,19 @@
    (cairo::refresh context))
 
 (defun window-update-loop ()
-   (iter (for x = (+ (get-internal-real-time) 16)) ;; 33 -> 30 FPS, 16 -> 60 FPS
- 
+   (iter (for x = (+ (get-internal-real-time) 16))
          (draw root-window)        
-
          (cairo::refresh context)
-         
-         ;; (iter (while (cairo::handle-event context)))
+         (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                      ;; (print (* 1000.0 delay))
+                      (if (> delay 0) delay 0)))))
 
+(defun repl-update-loop ()
+   (iter (for x = (+ (get-internal-real-time) 16))
+         (draw root-window)        
+         (when *buffer-needs-update*
+            (cairo::refresh context)
+            (setf *buffer-needs-update* nil))
          (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                       ;; (print (* 1000.0 delay))
                       (if (> delay 0) delay 0)))))
@@ -324,6 +330,8 @@
    (setf font (pango:pango_font_description_from_string "Blueberry 10"))
    (pango:pango_layout_set_font_description layout font)
    
+   (sb-thread:make-thread 'handle-key-events-test :name "keyevents-thread")
+
    (add-as-subwindow
       (make-window :draw
          (lambda (window)
@@ -397,6 +405,8 @@
 (defparameter *repl-buffer* "> ")
 (defparameter *current-input* "")
 
+(defparameter *buffer-needs-update* t)
+
 (defun repl-append (str)
    (setf *repl-buffer* (concatenate 'string *repl-buffer* str))
    (setf *current-input* (concatenate 'string *current-input* str)))
@@ -405,6 +415,8 @@
    (iter
       (if *key-events*
          (let ((kev (pop *key-events*)))
+               ;; (print kev)
+               (setf *buffer-needs-update* t)
                (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4))
                      (cairo:destroy context)
                      (sb-ext:exit))
@@ -433,17 +445,20 @@
    (add-as-subwindow
       (make-window :draw
          (lambda (window) 
-            (new-path)
-            (set-source-rgb 47/255 56/255 60/255)
-            (rectangle 20 20 (- w 40) (- h 40))
-            (fill-path)
-               
-            (new-path)
-            (move-to 20 20)
-            (set-source-rgb 148/255 163/255 165/255)
-            (pango:pango_layout_set_text layout *repl-buffer* -1)
-            (pango-update)
+            (when *buffer-needs-update*
+               (new-path)
+               (set-source-rgb 47/255 56/255 60/255)
+               (rectangle 20 20 (- w 40) (- h 40))
+               (fill-path)
             
+               (new-path)
+               (move-to 20 20)
+               (set-source-rgb 148/255 163/255 165/255)
+               (pango:pango_layout_set_text layout *repl-buffer* -1)
+               (pango-update)
+               )
+            
+            (setf *last-length* (length *repl-buffer*))
             (draw-subwindows window)))
       root-window)   
-   (window-update-loop))
+   (repl-update-loop))
