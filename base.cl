@@ -1,4 +1,4 @@
-(proclaim '(optimize (speed 0) (safety 3) (debug 3)))
+(proclaim '(optimize (speed 3) (safety 0) (debug 0)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
@@ -54,6 +54,7 @@
   (display display))
 
 (defun refresh (xlib-image-context)
+   ;; (print "refresh")
    (with-slots (context (display-pointer display) dest-surface) xlib-image-context
       (cairo_paint (xlib-context xlib-image-context))
       (cairo_surface_flush dest-surface)
@@ -74,7 +75,7 @@
        (cond
          ;; expose events
          ((and (= type 12))
-          ;; (refresh xlib-image-context)
+          (refresh xlib-image-context)
           nil)
          ;; clientnotify event
          ((= type 33)
@@ -125,12 +126,9 @@
                                       keyreleasemask
                                       structurenotifymask)
                               t))
-         (setf signal-window
-               (create-window display root 1 1 'inputonly visual
-                              whitepixel 0 nil))
+         (setf signal-window (create-window display root 1 1 'inputonly visual whitepixel 0 nil))
          ;; create graphics-context
-         (setf graphics-context
-               (xcreategc display this-window 0 (null-pointer)))
+         (setf graphics-context (xcreategc display this-window 0 (null-pointer)))
          ;; set size hints on window (hoping that window managers will
          ;; respect this)
          (set-window-size-hints display this-window width width height height)
@@ -157,7 +155,8 @@
          ;; end of initialization
          (setf initialization-done? t)
          ;; EVENT LOOP
-         (funcall event-handling-function xlib-image-context)
+         (sb-thread:abort-thread)
+         ;; (funcall event-handling-function xlib-image-context)
          )
    ;; close down everything
    (with-slots (display pixmap window signal-window pointer xlib-context dest-surface) xlib-image-context
@@ -268,11 +267,12 @@
                       (if (> delay 0) delay 0)))))
 
 (defun repl-update-loop ()
-   (iter (for x = (+ (get-internal-real-time) 16))
-         (draw root-window)        
+   (iter (for x = (+ (get-internal-real-time) 33))
+         (draw root-window)
          (when *buffer-needs-update*
             (cairo::refresh context)
             (setf *buffer-needs-update* nil))
+         (iter (while (cairo::handle-event context)))
          (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                       ;; (print (* 1000.0 delay))
                       (if (> delay 0) delay 0)))))
@@ -412,7 +412,7 @@
    (setf *current-input* (concatenate 'string *current-input* str)))
 
 (defun handle-repl-key-events ()
-   (iter
+   (iter (for x = (+ (get-internal-real-time) 17))
       (if *key-events*
          (let ((kev (pop *key-events*)))
                ;; (print kev)
@@ -433,7 +433,10 @@
                                      (setf *repl-buffer* (subseq *repl-buffer* 0 (- (length *repl-buffer*) 1)))))
                   (otherwise (repl-append (if (> (length (keypress-str kev)) 1) 
                                                 (string (code-char (keypress-code kev))) 
-                                                (keypress-str kev)))))))))
+                                                (keypress-str kev)))))))
+      (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                   ;; (print (* 1000.0 delay))
+                   (if (> delay 0) delay 0)))))
 
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
@@ -455,8 +458,7 @@
                (move-to 20 20)
                (set-source-rgb 148/255 163/255 165/255)
                (pango:pango_layout_set_text layout *repl-buffer* -1)
-               (pango-update)
-               )
+               (pango-update))
             
             (setf *last-length* (length *repl-buffer*))
             (draw-subwindows window)))

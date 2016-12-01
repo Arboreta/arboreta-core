@@ -3,9 +3,9 @@
 (in-package arboreta)
 
 (defun toplevel-start-render ()
-   (setf context (create-xlib-image-context w h :window-name "arboreta"))
+   (setf context (cairo::create-arboreta-window w h))
    (setf surface (get-target context))
    (with-context (context)
-      (typing-test)))
+      (repl-test)))
 
 (sb-ext:save-lisp-and-die "arboreta" :toplevel #'toplevel-start-render :executable t)
