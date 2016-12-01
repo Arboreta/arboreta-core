@@ -12,14 +12,20 @@ format to use, for the font in question.
 
 # Current Roadmap:
 
+* clean up base code and factor out tests
 * window clipping
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
-* xlib for the mouse
-* window resizing, also xlib
-* figure out how to get screen dimensions for wm mode?
+* mouse event handling
+* window resizing
+* figure out how to get screen dimensions for wm mode so it's the right size
+* cursor display
+* more keysym handling
+* text editing primitives
 
 # Near Future:
 
+* figure out how to interface with sbcl in such a way conditions can be displayed graphically
+* general interface primitives -- menus, items, ect.
 * install script that auto-generates the sesssion manager and desktop files
 * listener REPL ala swank
 * symbol translation table layer
