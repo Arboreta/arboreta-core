@@ -2,6 +2,8 @@
 
 (in-package arboreta)
 
+(setf *random-state* (make-random-state t))
+
 (defun repl-update-loop ()
    (iter (for x = (+ (get-internal-real-time) 33))
          (draw root-window)
@@ -51,7 +53,11 @@
 
 (defparameter *heart* "♥")
 (defparameter *heart-colors* 
-   (list "ae82ff" "dc2566" "fa2772" "d4c96e" "e7db75" "8fc029" "a7e22e" "56b7a5" "66efd5" "55bcce" "66d9ee" "9358fe"))
+   '(("ae82ff" "dc2566" "fa2772" "d4c96e" "e7db75" "8fc029" "a7e22e" "56b7a5" "66efd5" "55bcce" "66d9ee" "9358fe")
+     ("1693A5" "02AAB0" "00CDAC" "7FFF24" "C3FF68")
+     ("AAFF00" "FFAA00" "FF00AA" "AA00FF" "00AAFF")
+     ("F6D76B" "FF9036" "D6254D" "FF5475" "FDEBA9")
+     ("FDCFBF" "FEB89F" "E23D75" "742365")))
 
 (defun get-block (index size seq)
    (nth index 
@@ -76,11 +82,16 @@
          (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
          (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)))
 
+(defparameter *colorset* (alexandria:random-elt *heart-colors*))
+(defparameter *offset* (alexandria:random-elt (alexandria:iota 5 :start -5)))
+
 (defun draw-hearts ()
    (iter (for y from 0 to 65 by 15)
+         (for y2 upfrom 0)
       (iter (for x from -7 to 607 by 14)
-            (basic-write *heart* 
-               (nth (mod (+ (/ (+ 7 x) 14) (/ y 15)) (length *heart-colors*)) *heart-colors*) x y))))
+            (for x2 upfrom 0)
+            (basic-write *heart*
+               (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
@@ -88,6 +99,8 @@
    (pango:pango_layout_set_font_description layout font)
    
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
+
+   (scale 1.0 1.0)
 
    (setf root-window
       (make-window :draw

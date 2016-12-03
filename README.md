@@ -10,6 +10,8 @@ and fontconfig knows which
 [subpixel rendering](https://wiki.archlinux.org/index.php/Font_Configuration#Subpixel_rendering)
 format to use, for the font in question.
 
+A fresh serving of colorful hearts with each repl!
+
 ![scrot](https://raw.githubusercontent.com/Arboreta/arboreta-core/master/heart-repl.png)
 
 # Current Roadmap:
