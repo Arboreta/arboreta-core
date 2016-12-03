@@ -1,4 +1,4 @@
-(proclaim '(optimize (speed 3) (safety 0) (debug 0)))
+(proclaim '(optimize (speed 0) (safety 3) (debug 3)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
@@ -402,7 +402,7 @@
       root-window)   
    (window-update-loop))
 
-(defparameter *repl-buffer* "> ")
+(defparameter *repl-buffer* (format nil "minirepl 0.1~%> "))
 (defparameter *current-input* "")
 
 (defparameter *buffer-needs-update* t)
@@ -445,22 +445,23 @@
    
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
 
-   (add-as-subwindow
+   (defparameter *hearts* (image-surface-create-from-png "hearts.png"))
+
+   (setf root-window
       (make-window :draw
          (lambda (window) 
             (when *buffer-needs-update*
-               (new-path)
-               (set-source-rgb 47/255 56/255 60/255)
-               (rectangle 20 20 (- w 40) (- h 40))
+					(new-path)
+               (set-source-rgb 37/255 46/255 50/255)
+               (rectangle 0 0 w h)
                (fill-path)
             
                (new-path)
-               (move-to 20 20)
+               (move-to 2 2)
                (set-source-rgb 148/255 163/255 165/255)
                (pango:pango_layout_set_text layout *repl-buffer* -1)
                (pango-update))
             
             (setf *last-length* (length *repl-buffer*))
-            (draw-subwindows window)))
-      root-window)   
+            (draw-subwindows window))))   
    (repl-update-loop))
