@@ -78,9 +78,9 @@
 
 (defun draw-hearts ()
    (iter (for y from 0 to 65 by 15)
-      (iter (for x from 0 to 600 by 14)
+      (iter (for x from -7 to 607 by 14)
             (basic-write *heart* 
-               (nth (mod (+ (/ x 14) (/ y 15)) (length *heart-colors*)) *heart-colors*) x y))))
+               (nth (mod (+ (/ (+ 7 x) 14) (/ y 15)) (length *heart-colors*)) *heart-colors*) x y))))
 
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
@@ -101,7 +101,7 @@
                (draw-hearts)
          
                (new-path)
-               (move-to 2 75)
+               (move-to 2 78)
                (set-hex-color "CFD0C2")
                (pango:pango_layout_set_text layout *repl-buffer* -1)
                (pango-update))
