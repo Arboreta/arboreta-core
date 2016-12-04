@@ -26,6 +26,7 @@ A fresh serving of colorful hearts with each repl!
 * figure out how to get font information, make everything relative to that
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
 * figure out how to get screen dimensions for wm mode so it's the right size
+* reduce memory usage?
 
 # Near Future:
 

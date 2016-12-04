@@ -21,7 +21,7 @@
 
 (defparameter *background-color* "252E32")
 
-(defparameter *triangle-color* "55BCCE")
+(defparameter *triangle-color* "55BCCE")  
 
 (defparameter *prompt-fg-color* "CFD0C2")
 

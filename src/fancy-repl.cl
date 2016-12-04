@@ -90,7 +90,8 @@
          (pango:pango_layout_set_text pango-layout str -1)
 
          (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
-         (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)))
+         (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)
+			(pango:g_object_unref pango-layout)))
 
 (defparameter *colorset* (alexandria:random-elt *heart-colors*))
 (defparameter *offset* (alexandria:random-elt (alexandria:iota 5 :start -5)))
@@ -155,11 +156,7 @@
                (fill-path)
                
                ;; (draw-hearts)
-               (draw-repl-body (- *outer-padding*)) ;; 78
-               ;; (set-hex-color "CFD0C2")
-               )
-            
-            (setf *last-length* (length *repl-buffer*))
+               (draw-repl-body (- *outer-padding*)))
             (draw-subwindows window))))   
    (repl-update-loop))
 
