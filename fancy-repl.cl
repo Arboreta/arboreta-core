@@ -1,4 +1,5 @@
 (load "base.cl")
+(load "repl-config.cl")
 
 (in-package arboreta)
 
@@ -101,7 +102,6 @@
 
 (defparameter *buffer-history* nil)
 
-(defparameter *triangle-offset* 5)
 (defun draw-prompt (text y-offset)
    (new-path)
    (set-source-rgb 47/255 56/255 60/255)
@@ -110,30 +110,26 @@
    
    (move-to 0 (+ *outer-padding* y-offset))
    (new-path)
-   (set-hex-color "55BCCE") ;; triangle color
+   (set-hex-color *triangle-color*)
    (line-to (- (+ 8 (* 2 *inner-padding*)) *triangle-offset*) 
             (+ y-offset *outer-padding* 8 (* 1 *inner-padding*)))
    (line-to (- *triangle-offset*) (+ y-offset *outer-padding* 16 (* 2 *inner-padding*)))
    (line-to (- *triangle-offset*) (+ *outer-padding* y-offset))
    (fill-path)
  
-   (basic-write text "CFD0C2" *prompt-offset* (+ *outer-padding* *inner-padding* y-offset))
+   (basic-write text *prompt-fg-color* *prompt-offset* (+ *outer-padding* *inner-padding* y-offset))
    (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
 
 ;; normal lines get 16 px, repl lines get (2 * (innter + outer)) + 16
 ;; this *really* needs to be relative to font size
-(defparameter *outer-padding* 4)
-(defparameter *inner-padding* 2)
-(defparameter *prompt-offset* 12)
-(defparameter *text-offset* 12) ;; 2
 (defun draw-repl-body (y-offset)
    (iter (for x in *buffer-history*)
          (incf y-offset (draw-prompt (first x) y-offset))
          (when (not (equalp (third x) ""))
-            (basic-write (string-trim '(#\Newline) (third x)) "76715E" *text-offset* y-offset)
+            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* *text-offset* y-offset)
             (incf y-offset (* 16 (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
                                             (counting (eql c #\newline)))))))
-         (basic-write (second x) "ACADA1" *text-offset* y-offset)
+         (basic-write (second x) *return-form-color* *text-offset* y-offset)
          (incf y-offset 16))
    (draw-prompt *current-input* y-offset))
 
@@ -151,7 +147,7 @@
          (lambda (window) 
             (when *buffer-needs-update*
                (new-path)
-               (set-source-rgb 37/255 46/255 50/255)
+               (set-hex-color *background-color*)
                (rectangle 0 0 w h)
                (fill-path)
                
