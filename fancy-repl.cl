@@ -1,6 +1,9 @@
 (load "base.cl")
 (load "repl-config.cl")
 
+(declaim #+sbcl(sb-ext:muffle-conditions style-warning))
+(declaim #+sbcl(sb-ext:muffle-conditions warning))
+
 (in-package arboreta)
 
 (setf *random-state* (make-random-state t))
@@ -104,7 +107,7 @@
 
 (defun draw-prompt (text y-offset)
    (new-path)
-   (set-source-rgb 47/255 56/255 60/255)
+   (set-hex-color *prompt-bg-color*)
    (rectangle 0 (+ *outer-padding* y-offset) w (+ 16 (* 2 *inner-padding*)))
    (fill-path)
    
