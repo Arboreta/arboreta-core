@@ -15,14 +15,20 @@
                       ;; (print (* 1000.0 delay))
                       (if (> delay 0) delay 0)))))
 
-(defparameter *repl-buffer* (format nil "minirepl 0.1~%> "))
 (defparameter *current-input* "")
 
 (defparameter *buffer-needs-update* t)
 
 (defun repl-append (str)
-   (setf *repl-buffer* (concatenate 'string *repl-buffer* str))
    (setf *current-input* (concatenate 'string *current-input* str)))
+
+(defun simple-eval ()
+   (let* ((str (make-array '(0) :element-type 'base-char :fill-pointer 0 :adjustable t))
+          (res (with-output-to-string (stream str)
+                 (let* ((*standard-output* stream)
+                        (val (format nil "~s" (ignore-errors (eval (read-from-string *current-input*))))))
+                        (list val str))))) 
+          `((,(alexandria:copy-sequence 'string *current-input*) ,@res))))
 
 (defun handle-repl-key-events ()
    (iter (for x = (+ (get-internal-real-time) 17))
@@ -34,16 +40,16 @@
                      (cairo:destroy context)
                      (sb-ext:exit))
                (alexandria::switch ((keypress-str kev) :test #'equalp) 
-                  ("Return" (repl-append (format nil "~%~a~%> " (ignore-errors (eval (read-from-string *current-input*)))))
-                            (finish-output)
+                  ("Return" (alexandria:appendf *buffer-history* (simple-eval))
+                            ;; (print *buffer-history*)
+                            ;; (finish-output)
                             (setf *current-input* ""))
                   ("Shift_L" nil)
                   ("Control_L" nil)
                   ("Control_R" nil)
                   ("Shift_R" nil)
                   ("BackSpace" (when (> (length *current-input*) 0) 
-                                     (setf *current-input* (subseq *current-input* 0 (- (length *current-input*) 1)))
-                                     (setf *repl-buffer* (subseq *repl-buffer* 0 (- (length *repl-buffer*) 1)))))
+                                     (setf *current-input* (subseq *current-input* 0 (- (length *current-input*) 1)))))
                   (otherwise (repl-append (if (> (length (keypress-str kev)) 1) 
                                                 (string (code-char (keypress-code kev))) 
                                                 (keypress-str kev)))))))
@@ -93,6 +99,44 @@
             (basic-write *heart*
                (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
+(defparameter *buffer-history* nil)
+
+(defparameter *triangle-offset* 5)
+(defun draw-prompt (text y-offset)
+   (new-path)
+   (set-source-rgb 47/255 56/255 60/255)
+   (rectangle 0 (+ *outer-padding* y-offset) w (+ 16 (* 2 *inner-padding*)))
+   (fill-path)
+   
+   (move-to 0 (+ *outer-padding* y-offset))
+   (new-path)
+   (set-hex-color "55BCCE") ;; triangle color
+   (line-to (- (+ 8 (* 2 *inner-padding*)) *triangle-offset*) 
+            (+ y-offset *outer-padding* 8 (* 1 *inner-padding*)))
+   (line-to (- *triangle-offset*) (+ y-offset *outer-padding* 16 (* 2 *inner-padding*)))
+   (line-to (- *triangle-offset*) (+ *outer-padding* y-offset))
+   (fill-path)
+ 
+   (basic-write text "CFD0C2" *prompt-offset* (+ *outer-padding* *inner-padding* y-offset))
+   (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
+
+;; normal lines get 16 px, repl lines get (2 * (innter + outer)) + 16
+;; this *really* needs to be relative to font size
+(defparameter *outer-padding* 4)
+(defparameter *inner-padding* 2)
+(defparameter *prompt-offset* 12)
+(defparameter *text-offset* 12) ;; 2
+(defun draw-repl-body (y-offset)
+   (iter (for x in *buffer-history*)
+         (incf y-offset (draw-prompt (first x) y-offset))
+         (when (not (equalp (third x) ""))
+            (basic-write (string-trim '(#\Newline) (third x)) "76715E" *text-offset* y-offset)
+            (incf y-offset (* 16 (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
+                                            (counting (eql c #\newline)))))))
+         (basic-write (second x) "ACADA1" *text-offset* y-offset)
+         (incf y-offset 16))
+   (draw-prompt *current-input* y-offset))
+
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
    (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
@@ -111,13 +155,10 @@
                (rectangle 0 0 w h)
                (fill-path)
                
-               (draw-hearts)
-         
-               (new-path)
-               (move-to 2 78)
-               (set-hex-color "CFD0C2")
-               (pango:pango_layout_set_text layout *repl-buffer* -1)
-               (pango-update))
+               ;; (draw-hearts)
+               (draw-repl-body (- *outer-padding*)) ;; 78
+               ;; (set-hex-color "CFD0C2")
+               )
             
             (setf *last-length* (length *repl-buffer*))
             (draw-subwindows window))))   

@@ -12,19 +12,20 @@ format to use, for the font in question.
 
 A fresh serving of colorful hearts with each repl!
 
-![scrot](https://raw.githubusercontent.com/Arboreta/arboreta-core/master/heart-repl.png)
+![scrot](https://raw.githubusercontent.com/Arboreta/arboreta-core/master/repl.png)
 
 # Current Roadmap:
 
 * clean up base code and factor out tests
 * window clipping
-* design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
-* mouse event handling
-* window resizing
-* figure out how to get screen dimensions for wm mode so it's the right size
 * cursor display
-* more keysym handling
 * text editing primitives
+* window resizing
+* more keysym handling
+* mouse event handling
+* figure out how to get font information, make everything relative to that
+* design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
+* figure out how to get screen dimensions for wm mode so it's the right size
 
 # Near Future:
 
