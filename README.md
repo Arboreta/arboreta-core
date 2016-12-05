@@ -20,7 +20,6 @@ as well as in some limited capacity as standalone WM applications.
 * window clipping
 * window resizing
 * mouse event handling
-* figure out how to get font information, make everything relative to that
 * arboreta-specific constructs for font, text, editable text, ect.
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
 * figure out how to get screen dimensions for wm mode so it's the right size
@@ -28,6 +27,7 @@ as well as in some limited capacity as standalone WM applications.
 
 # Near Future:
 
+* standard input handling and better evaluation, in a new thread
 * figure out how to interface with sbcl in such a way conditions can be displayed graphically
 * general interface primitives -- menus, items, ect.
 * parsing .xresources for font and colors

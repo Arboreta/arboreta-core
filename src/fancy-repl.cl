@@ -141,42 +141,39 @@
                (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
 (defparameter *buffer-history* nil)
+(defparameter *font-height* 0)
+
+(defun triangle-offset () (round (* *font-height* 0.35)))
+(defun outer-padding () (round (* *font-height* 0.25)))
+(defun inner-padding () (round (* *font-height* 0.15)))
+(defun prompt-offset () (round (* *font-height* 0.80)))
+(defun text-offset () (prompt-offset))
+
+(defun draw-prompt-bg (y-offset)
+   (new-path)
+   (set-hex-color *prompt-bg-color*)
+   (rectangle 0 (+ (outer-padding) y-offset) w (+ *font-height* (* 2 (inner-padding))))
+   (fill-path)
+   
+   (move-to 0 (+ (outer-padding) y-offset))
+   (new-path)
+   (set-hex-color *triangle-color*)
+   (line-to (- (+ (ceiling (/ *font-height* 2)) (* 2 (inner-padding))) (triangle-offset)) 
+            (+ y-offset (outer-padding) (ceiling (/ *font-height* 2)) (* 1 (inner-padding))))
+   (line-to (- (triangle-offset)) (+ y-offset (outer-padding) *font-height* (* 2 (inner-padding))))
+   (line-to (- (triangle-offset)) (+ (outer-padding) y-offset))
+   (fill-path))
 
 (defun draw-prompt (text y-offset)
-   (new-path)
-   (set-hex-color *prompt-bg-color*)
-   (rectangle 0 (+ *outer-padding* y-offset) w (+ 16 (* 2 *inner-padding*)))
-   (fill-path)
-   
-   (move-to 0 (+ *outer-padding* y-offset))
-   (new-path)
-   (set-hex-color *triangle-color*)
-   (line-to (- (+ 8 (* 2 *inner-padding*)) *triangle-offset*) 
-            (+ y-offset *outer-padding* 8 (* 1 *inner-padding*)))
-   (line-to (- *triangle-offset*) (+ y-offset *outer-padding* 16 (* 2 *inner-padding*)))
-   (line-to (- *triangle-offset*) (+ *outer-padding* y-offset))
-   (fill-path)
+   (draw-prompt-bg y-offset)
  
-   (basic-write text *prompt-fg-color* *prompt-offset* (+ *outer-padding* *inner-padding* y-offset))
-   (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
-
+   (basic-write text *prompt-fg-color* (prompt-offset) (+ (outer-padding) (inner-padding) y-offset))
+   (+ *font-height* (* 2 (outer-padding)) (* 2 (inner-padding))))
 
 (defun draw-current-prompt (text y-offset)
-   (new-path)
-   (set-hex-color *prompt-bg-color*)
-   (rectangle 0 (+ *outer-padding* y-offset) w (+ 16 (* 2 *inner-padding*)))
-   (fill-path)
-   
-   (move-to 0 (+ *outer-padding* y-offset))
-   (new-path)
-   (set-hex-color *triangle-color*)
-   (line-to (- (+ 8 (* 2 *inner-padding*)) *triangle-offset*) 
-            (+ y-offset *outer-padding* 8 (* 1 *inner-padding*)))
-   (line-to (- *triangle-offset*) (+ y-offset *outer-padding* 16 (* 2 *inner-padding*)))
-   (line-to (- *triangle-offset*) (+ *outer-padding* y-offset))
-   (fill-path)
+   (draw-prompt-bg y-offset)
 
-   (let ((str text) (color *prompt-fg-color*) (x *prompt-offset*) (y (+ *outer-padding* *inner-padding* y-offset)))
+   (let ((str text) (color *prompt-fg-color*) (x (prompt-offset)) (y (+ (outer-padding) (inner-padding) y-offset)))
       (let ((pango-layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer))))
             (pango:pango_layout_set_font_description pango-layout font)
 
@@ -190,14 +187,14 @@
             
             (when *cursor-blink-status*
                (new-path)
-               (set-hex-color *triangle-color*)
+               (set-hex-color *prompt-fg-color*)
                (let ((cursor (pango:get-cursor-pos pango-layout *cursor-index*)))
-                     (rectangle (+ (first cursor) *prompt-offset* 0) (+ (second cursor) *outer-padding* *inner-padding* y-offset)
+                     (rectangle (+ (first cursor) (prompt-offset) 0) (+ (second cursor) (outer-padding) (inner-padding) y-offset)
                                 (+ 0.5 (third cursor)) (fourth cursor)))
                (fill-path))
             (pango:g_object_unref pango-layout)))
 
-   (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
+   (+ *font-height* (* 2 (outer-padding)) (* 2 (inner-padding))))
 
 ;; normal lines get 16 px, repl lines get (2 * (innter + outer)) + 16
 ;; this *really* needs to be relative to font size
@@ -205,18 +202,29 @@
    (iter (for x in *buffer-history*)
          (incf y-offset (draw-prompt (first x) y-offset))
          (when (not (equalp (third x) ""))
-            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* *text-offset* y-offset)
-            (incf y-offset (* 16 (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
+            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* (text-offset) y-offset)
+            (incf y-offset (* *font-height* (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
                                             (counting (eql c #\newline)))))))
-         (basic-write (second x) *return-form-color* *text-offset* y-offset)
-         (incf y-offset 16))
+         (basic-write (second x) *return-form-color* (text-offset) y-offset)
+         (incf y-offset *font-height*))
    (draw-current-prompt *current-input* y-offset))
+
+;; get the font height by making a layout and then finding the cursor size
+(defun pango-font-height-hack ()
+   (let ((pango-layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
+         (size 0))
+     (pango:pango_layout_set_font_description pango-layout font)
+     (setf size (fourth (pango:get-cursor-pos pango-layout 0)))
+     (pango:g_object_unref pango-layout)
+     size))
 
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
-   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10")) 
+   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
    (pango:pango_layout_set_font_description layout font)
    
+   (setf *font-height* (+ 1 (pango-font-height-hack)))   
+
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
 
    (scale 1.0 1.0)
@@ -230,9 +238,7 @@
                (rectangle 0 0 w h)
                (fill-path)
                
-               ;; (draw-hearts)
-               (draw-repl-body (- *outer-padding*))
-               )
+               (draw-repl-body (- (outer-padding))))
             (draw-subwindows window))))   
    (repl-update-loop))
 
