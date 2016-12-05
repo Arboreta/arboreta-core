@@ -62,7 +62,6 @@
    (iter (for x = (+ (get-internal-real-time) 17))
       (if *key-events*
          (let ((kev (pop *key-events*)))
-               ;; (print kev)
                (setf *cursor-blink-status* t)
                (setf *cursor-blink-time* (+ (get-internal-real-time) *cursor-blink-delay*))
                
@@ -143,37 +142,37 @@
 (defparameter *buffer-history* nil)
 (defparameter *font-height* 0)
 
-(defun triangle-offset () (round (* *font-height* 0.35)))
-(defun outer-padding () (round (* *font-height* 0.25)))
-(defun inner-padding () (round (* *font-height* 0.15)))
-(defun prompt-offset () (round (* *font-height* 0.80)))
-(defun text-offset () (prompt-offset))
+(defparameter triangle-offset 0)
+(defparameter outer-padding 0)
+(defparameter inner-padding 0)
+(defparameter prompt-offset 0)
+(defparameter text-offset 0)
 
 (defun draw-prompt-bg (y-offset)
    (new-path)
    (set-hex-color *prompt-bg-color*)
-   (rectangle 0 (+ (outer-padding) y-offset) w (+ *font-height* (* 2 (inner-padding))))
+   (rectangle 0 (+ outer-padding y-offset) w (+ *font-height* (* 2 inner-padding)))
    (fill-path)
    
-   (move-to 0 (+ (outer-padding) y-offset))
+   (move-to 0 (+ outer-padding y-offset))
    (new-path)
    (set-hex-color *triangle-color*)
-   (line-to (- (+ (ceiling (/ *font-height* 2)) (* 2 (inner-padding))) (triangle-offset)) 
-            (+ y-offset (outer-padding) (ceiling (/ *font-height* 2)) (* 1 (inner-padding))))
-   (line-to (- (triangle-offset)) (+ y-offset (outer-padding) *font-height* (* 2 (inner-padding))))
-   (line-to (- (triangle-offset)) (+ (outer-padding) y-offset))
+   (line-to (- (+ (ceiling (/ *font-height* 2)) (* 2 inner-padding)) triangle-offset) 
+            (+ y-offset outer-padding (ceiling (/ *font-height* 2)) (* 1 inner-padding)))
+   (line-to (- triangle-offset) (+ y-offset outer-padding *font-height* (* 2 inner-padding)))
+   (line-to (- triangle-offset) (+ outer-padding y-offset))
    (fill-path))
 
 (defun draw-prompt (text y-offset)
    (draw-prompt-bg y-offset)
  
-   (basic-write text *prompt-fg-color* (prompt-offset) (+ (outer-padding) (inner-padding) y-offset))
-   (+ *font-height* (* 2 (outer-padding)) (* 2 (inner-padding))))
+   (basic-write text *prompt-fg-color* prompt-offset (+ outer-padding inner-padding y-offset))
+   (+ *font-height* (* 2 outer-padding) (* 2 inner-padding)))
 
 (defun draw-current-prompt (text y-offset)
    (draw-prompt-bg y-offset)
 
-   (let ((str text) (color *prompt-fg-color*) (x (prompt-offset)) (y (+ (outer-padding) (inner-padding) y-offset)))
+   (let ((str text) (color *prompt-fg-color*) (x prompt-offset) (y (+ outer-padding inner-padding y-offset)))
       (let ((pango-layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer))))
             (pango:pango_layout_set_font_description pango-layout font)
 
@@ -189,12 +188,12 @@
                (new-path)
                (set-hex-color *prompt-fg-color*)
                (let ((cursor (pango:get-cursor-pos pango-layout *cursor-index*)))
-                     (rectangle (+ (first cursor) (prompt-offset) 0) (+ (second cursor) (outer-padding) (inner-padding) y-offset)
+                     (rectangle (+ (first cursor) prompt-offset 0) (+ (second cursor) outer-padding inner-padding y-offset)
                                 (+ 0.5 (third cursor)) (fourth cursor)))
                (fill-path))
             (pango:g_object_unref pango-layout)))
 
-   (+ *font-height* (* 2 (outer-padding)) (* 2 (inner-padding))))
+   (+ *font-height* (* 2 outer-padding) (* 2 inner-padding)))
 
 ;; normal lines get 16 px, repl lines get (2 * (innter + outer)) + 16
 ;; this *really* needs to be relative to font size
@@ -202,10 +201,10 @@
    (iter (for x in *buffer-history*)
          (incf y-offset (draw-prompt (first x) y-offset))
          (when (not (equalp (third x) ""))
-            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* (text-offset) y-offset)
+            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* text-offset y-offset)
             (incf y-offset (* *font-height* (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
                                             (counting (eql c #\newline)))))))
-         (basic-write (second x) *return-form-color* (text-offset) y-offset)
+         (basic-write (second x) *return-form-color* text-offset y-offset)
          (incf y-offset *font-height*))
    (draw-current-prompt *current-input* y-offset))
 
@@ -218,6 +217,8 @@
      (pango:g_object_unref pango-layout)
      size))
 
+(defun font-scaled (n) (round (* *font-height* n)))
+
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
    (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
@@ -228,6 +229,12 @@
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
 
    (scale 1.0 1.0)
+   
+   (setf triangle-offset (font-scaled 0.35))
+   (setf outer-padding (font-scaled 0.25))
+   (setf inner-padding (font-scaled 0.15))
+   (setf prompt-offset (font-scaled 0.8))
+   (setf text-offset prompt-offset)
 
    (setf root-window
       (make-window :draw
@@ -238,12 +245,50 @@
                (rectangle 0 0 w h)
                (fill-path)
                
-               (draw-repl-body (- (outer-padding))))
+               (draw-repl-body (- outer-padding)))
             (draw-subwindows window))))   
    (repl-update-loop))
 
+;; descriptive function names, huh?
+(defun cat (list)
+   (format nil "~{~a~}" list))
+
+(defmacro cats (&rest rest)
+   `(cat (list ,@rest)))
+
+(defun catn (list)
+   (format nil "~{~a~%~}" list))
+
+(defmacro catans (&rest rest)
+   `(catn (list ,@rest)))
+
+(defparameter *padding?* t)
+(defparameter *xresources-path* (cats (sb-ext:posix-getenv "HOME") "/.Xresources"))
+(defparameter *load-xresources?* nil)
+(defparameter *args* (cdr sb-ext:*posix-argv*))
+
+;; todo: make general fixed-arity command-line handling library
+(defun handle-arguments ()
+   (when *args*
+    (iter (for i from 0 to (- (length *args*) 1))
+          (for x = (nth i *args*))
+          (alexandria:switch (x :test #'equalp)
+            ("--help"
+               (princ (catans 
+                  "arboreta-repl command line options"
+                  "   --no-padding       display the prompt at normal line spacing"
+                  "   --load-xresources  pull font and colors from ~/.xresources"
+                  "   --xpath (path)     alternative path to load .xresources"))
+               (sb-ext:exit))
+            ("--no-padding" (setf *padding?* nil))
+            ("--load-xresources" (setf *load-xresources?* t))
+            ("--xpath"
+               (setf *xresources-path* (aif (nth (+ i 1) *args*) it (error "no path argument provided to --xpath")))
+               (incf i))
+            (otherwise (warn "unrecognized command line argument '~a', ignoring" x))))))
 
 (defun toplevel-start-render ()
+   (handle-arguments)
    (setf context (cairo::create-arboreta-window w h))
    (setf surface (get-target context))
    (with-context (context)
