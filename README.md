@@ -17,12 +17,8 @@ as well as in some limited capacity as standalone WM applications.
 
 # Current Roadmap:
 
-* clean up base code and factor out tests
 * window clipping
-* cursor display
-* text editing primitives
 * window resizing
-* more keysym handling
 * mouse event handling
 * figure out how to get font information, make everything relative to that
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
