@@ -15,6 +15,17 @@ as well as in some limited capacity as standalone WM applications.
 
 ![scrot](https://raw.githubusercontent.com/Arboreta/arboreta-core/master/repl.png)
 
+## dependencies and installation
+
+Arboreta depends on xlib, cairo, and pango, the debian packages for which are: libx11-dev, libcairo2-dev, and libpango1.0-dev.
+
+Arboreta requires quicklisp to run. It's been tested on sbcl, but should work on other CL implementations.
+to install quicklisp, head over to [quicklisp's website](https://www.quicklisp.org/beta/) and follow the instructions there.
+Make sure you run `(ql:add-to-init-file)`, otherwise quicklisp won't be avaliable when you start your interpreter.
+
+To use arboreta, clone the repo somewhere, cd into it, and run `./install.sh`. It will generate scripts which you can call
+to run the various applications.
+
 # Current Roadmap:
 
 * window clipping
