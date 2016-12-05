@@ -21,6 +21,7 @@ as well as in some limited capacity as standalone WM applications.
 * window resizing
 * mouse event handling
 * figure out how to get font information, make everything relative to that
+* arboreta-specific constructs for font, text, editable text, ect.
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
 * figure out how to get screen dimensions for wm mode so it's the right size
 * reduce memory usage?
@@ -29,6 +30,7 @@ as well as in some limited capacity as standalone WM applications.
 
 * figure out how to interface with sbcl in such a way conditions can be displayed graphically
 * general interface primitives -- menus, items, ect.
+* parsing .xresources for font and colors
 * install script that auto-generates the sesssion manager and desktop files
 * listener REPL ala swank
 * symbol translation table layer

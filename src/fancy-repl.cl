@@ -8,10 +8,22 @@
 
 (setf *random-state* (make-random-state t))
 
+(defparameter *cursor-blink-status* t)
+(defparameter *cursor-blink-time* 0)
+(defparameter *cursor-blink-delay* 1000)
+
+(defun cursor-blink-timer ()
+   (let ((time (get-internal-real-time)))
+         (when (>= time *cursor-blink-time*)
+               (setf *cursor-blink-status* (not *cursor-blink-status*))
+               (setf *cursor-blink-time* (+ (get-internal-real-time) *cursor-blink-delay*))
+               (setf *buffer-needs-update* t))))
+
 (defun repl-update-loop ()
    (iter (for x = (+ (get-internal-real-time) 20))
-         (draw root-window)
+         (cursor-blink-timer)
          (when *buffer-needs-update*
+            (draw root-window)
             (cairo::refresh context)
             (setf *buffer-needs-update* nil))
          (iter (while (cairo::handle-event context)))
@@ -24,14 +36,18 @@
 (defparameter *buffer-needs-update* t)
 
 (defun editor-insert (str)
-   (setf *current-input* (concatenate 'string (subseq *current-input* 0 *cursor-index*) 
-                                              str 
-                                              (subseq *current-input* *cursor-index*)))
+   (setf *current-input* 
+      (concatenate 'string 
+         (subseq *current-input* 0 *cursor-index*) 
+         str 
+         (subseq *current-input* *cursor-index*)))
    (incf *cursor-index* (length str)))
 
 (defun editor-delete-char ()
-   (setf *current-input* (concatenate 'string (subseq *current-input* 0 (- *cursor-index* 1))
-                                              (subseq *current-input* *cursor-index*)))
+   (setf *current-input* 
+      (concatenate 'string 
+         (subseq *current-input* 0 (- *cursor-index* 1))
+         (subseq *current-input* *cursor-index*)))
    (decf *cursor-index*))
 
 (defun simple-eval ()
@@ -47,6 +63,9 @@
       (if *key-events*
          (let ((kev (pop *key-events*)))
                ;; (print kev)
+               (setf *cursor-blink-status* t)
+               (setf *cursor-blink-time* (+ (get-internal-real-time) *cursor-blink-delay*))
+               
                (setf *buffer-needs-update* t)
                (when (and (eql (keypress-code kev) 113) (eql (keypress-mods kev) 4)) ;; C-q
                      (cairo:destroy context)
@@ -141,6 +160,7 @@
    (basic-write text *prompt-fg-color* *prompt-offset* (+ *outer-padding* *inner-padding* y-offset))
    (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
 
+
 (defun draw-current-prompt (text y-offset)
    (new-path)
    (set-hex-color *prompt-bg-color*)
@@ -168,14 +188,14 @@
             (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
             (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)
             
-            (new-path)
-            (set-hex-color *triangle-color*)
-            (let ((cursor (pango:get-cursor-pos pango-layout *cursor-index*)))
-                  (rectangle (+ (first cursor) *prompt-offset* 0) (+ (second cursor) *outer-padding* *inner-padding* y-offset)
-                             (+ 0.5 (third cursor)) (fourth cursor)))
-            (fill-path)
-            (pango:g_object_unref pango-layout)
-            ))
+            (when *cursor-blink-status*
+               (new-path)
+               (set-hex-color *triangle-color*)
+               (let ((cursor (pango:get-cursor-pos pango-layout *cursor-index*)))
+                     (rectangle (+ (first cursor) *prompt-offset* 0) (+ (second cursor) *outer-padding* *inner-padding* y-offset)
+                                (+ 0.5 (third cursor)) (fourth cursor)))
+               (fill-path))
+            (pango:g_object_unref pango-layout)))
 
    (+ 16 (* 2 *outer-padding*) (* 2 *inner-padding*)))
 
