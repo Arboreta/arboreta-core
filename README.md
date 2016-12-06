@@ -26,6 +26,13 @@ Make sure you run `(ql:add-to-init-file)`, otherwise quicklisp won't be avaliabl
 To use arboreta, clone the repo somewhere, cd into it, and run `./install.sh`. It will generate scripts which you can call
 to run the various applications.
 
+## X Resources
+
+Arboreta-repl can use xrm to obtain font and color information, so it looks similar to your terminal, if you use a terminal that pulls from .Xresources.
+Pass `--use-xresources` to `arboreta-repl` to start with X resource colors and fonts.
+The program name by default is `arboreta-repl`, but it can be changed with the `--xrm-name` flag, if you want to use something like URxvt's settings instead.
+It will choke on weird font formats and anything other than plain hex colors.
+
 # Current Roadmap:
 
 * window clipping
@@ -41,7 +48,6 @@ to run the various applications.
 * standard input handling and better evaluation, in a new thread
 * figure out how to interface with sbcl in such a way conditions can be displayed graphically
 * general interface primitives -- menus, items, ect.
-* parsing .xresources for font and colors
 * install script that auto-generates the sesssion manager and desktop files
 * listener REPL ala swank
 * symbol translation table layer

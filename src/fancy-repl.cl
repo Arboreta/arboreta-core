@@ -251,7 +251,7 @@
                    (cats family " " size)
                    (cats family))))
          (pango:pango_layout_set_font_description layout font)
-         (setf *font-height* (+ 1 (pango-font-height-hack))))))
+         (setf *font-height* (+ 0 (pango-font-height-hack))))))
 
 ;; todo: make test to determine if light or dark theme from bg/fg, get white/black colors accordingly
 (defun pull-x-resources ()
@@ -266,12 +266,14 @@
    (setf *return-form-color* (subseq (pull-x-attribute "color15") 1)) ;; text highlight 2
    (handle-x-font (pull-x-attribute "font")))
 
+(defparameter *default-font* "Fantasque Sans Mono 10")
+
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
-   (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
+   (setf font (pango:pango_font_description_from_string *default-font*))
    (pango:pango_layout_set_font_description layout font)
    
-   (setf *font-height* (+ 1 (pango-font-height-hack)))
+   (setf *font-height* (+ 0 (pango-font-height-hack)))
 
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
    
@@ -317,6 +319,7 @@
                (princ (catans 
                   "arboreta-repl command line options:"
                   "   --no-padding         display the prompt at normal line spacing"
+                  "   --font (name)        font to render, ignored if used with --use-xresources"
                   "   --no-prompt-shading  disable background shading for the prompt"
                   "   --use-xresources     pull font and colors from x resource manager"
                   "   --xrm-name (name)    use x resource settings from a different application, such as URxtv"))
@@ -326,6 +329,9 @@
             ("--use-xresources" (setf *load-xresources?* t))
             ("--xrm-name"
                (setf *xrm-application-name* (aif (nth (+ i 1) *args*) it (error "no path argument provided to --xrm-name")))
+               (incf i))
+            ("--font"
+               (setf *default-font* (aif (nth (+ i 1) *args*) it (error "no font name argument provided to --font")))
                (incf i))
             (otherwise (warn "unrecognized command line argument '~a', ignoring" x))))))
 
