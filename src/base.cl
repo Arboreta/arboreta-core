@@ -5,6 +5,8 @@
 
 (ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
 
+(load "cl-xkb.cl")
+
 (defpackage arboreta
   (:use cl iterate anaphora cl-cairo2))
 
@@ -89,18 +91,18 @@
          ;; remember to update cursor position from here as well
          ((or (= type 2)) ;; type 3 for release
           (with-foreign-slots ((state keycode x y) xev xkeyevent)
-            (let ((code 
+            (let ((code
                (with-slots (display) xlib-image-context 
-                  (xkeycode->keysym display keycode state))))
+                  (xkb::xkb-keycode->keysym display keycode 0 state))))
               (alexandria::appendf arboreta::*key-events* 
                  (list (if (zerop code) 
                            (arboreta::make-keypress :mods state 
                                                     :code (with-slots (display) xlib-image-context 
-                                                             (xkeycode->keysym display keycode 0)) 
+                                                             (xkb::xkb-keycode->keysym display keycode 0 0)) 
                                                     :str nil)
-                           (arboreta::make-keypress :mods state 
-                                                    :code code 
-                                                    :str (xkeysym->string code)))))))))
+                           (arboreta::make-keypress :mods state
+                                                    :code code
+                                                    :str (xkb::get-keysym-name code)))))))))
       t)))
 
 (defun default-event-handling (xlib-image-context)
@@ -191,7 +193,7 @@
                    :pixel-based-p t
                    :background-color background-color)))
       
-		(setf arboreta-display (slot-value xlib-image-context 'display))
+      (setf arboreta-display (slot-value xlib-image-context 'display))
       ;; start event loop thread
       (setf (slot-value xlib-image-context 'thread)
          (sb-thread:make-thread #'start-event-loop

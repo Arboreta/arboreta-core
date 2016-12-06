@@ -152,7 +152,25 @@
             (basic-write *heart*
                (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
+(defstruct repl-result
+   prompt printed-output result
+   static-height)
+
 (defparameter *buffer-history* nil)
+
+(defun line-count (str)
+   (+ 1 (iter (for c in-string (string-trim '(#\Newline) str)) 
+              (counting (eql c #\newline)))))
+
+(defun paragraph-height (str)
+   (* *font-height* (line-count str)))
+
+(defun total-height (repl-result)
+   (+ (* 2 inner-padding) (* 2 outer-padding)
+      (paragraph-height (repl-result-prompt repl-result))
+      (paragraph-height (repl-result-printed-output repl-result))
+      (paragraph-height (repl-result-result repl-result))))
+
 (defparameter *font-height* 0)
 
 (defparameter triangle-offset 0)
@@ -217,7 +235,7 @@
          (when (not (equalp (third x) ""))
             (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* text-offset y-offset)
             (incf y-offset (* *font-height* (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
-                                            (counting (eql c #\newline)))))))
+					                                        (counting (eql c #\newline)))))))
          (basic-write (second x) *return-form-color* text-offset y-offset)
          (incf y-offset *font-height*))
    (draw-current-prompt *current-input* y-offset))
