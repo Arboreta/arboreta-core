@@ -12,6 +12,19 @@
 (defparameter *cursor-blink-time* 0)
 (defparameter *cursor-blink-delay* 1000)
 
+;; descriptive function names, huh?
+(defun cat (list)
+   (format nil "~{~a~}" list))
+
+(defmacro cats (&rest rest)
+   `(cat (list ,@rest)))
+
+(defun catn (list)
+   (format nil "~{~a~%~}" list))
+
+(defmacro catans (&rest rest)
+   `(catn (list ,@rest)))
+
 (defun cursor-blink-timer ()
    (let ((time (get-internal-real-time)))
          (when (>= time *cursor-blink-time*)
@@ -219,16 +232,49 @@
 
 (defun font-scaled (n) (round (* *font-height* n)))
 
+(defun pull-x-attribute (name)
+   (cairo::x-get-defualt cairo::arboreta-display *xrm-application-name* name))
+
+(defun hex-tint (amt hex)
+   (let ((col (cl-colors:as-rgb hex)))
+         (cl-colors:print-hex-rgb (cl-colors:rgb-combination col (cl-colors:as-rgb "FFFFFF") amt) :hash nil :destination nil)))
+
+(defun handle-x-font (name)
+   (when name
+      (let* ((fields (cdr (cl-ppcre:split "-" name)))
+             (family (nth 1 fields))
+             (size (nth 6 fields)))
+         (setf font
+            (pango:pango_font_description_from_string 
+               (if (and size (not (equalp size "*"))) 
+                   (cats family " " size)
+                   (cats family))))
+         (pango:pango_layout_set_font_description layout font)
+         (setf *font-height* (+ 1 (pango-font-height-hack))))))
+
+;; todo: make test to determine if light or dark theme from bg/fg, get white/black colors accordingly
+(defun pull-x-resources ()
+   ;; background and accent colors
+   (setf *background-color* (subseq (pull-x-attribute "background") 1)) ;; base
+   (setf *triangle-color* (subseq (pull-x-attribute "color4") 1)) ;; color accent 1
+   (setf *prompt-bg-color* 
+      (hex-tint 0.05 (subseq (pull-x-attribute "background") 1))) ;; highlight 1
+   ;; font colors
+   (setf *prompt-fg-color* (subseq (pull-x-attribute "foreground") 1)) ;; text
+   (setf *printed-fg-color* (subseq (pull-x-attribute "color7") 1)) ;; text highlight 1
+   (setf *return-form-color* (subseq (pull-x-attribute "color15") 1)) ;; text highlight 2
+   (handle-x-font (pull-x-attribute "font")))
+
 (defun repl-test ()
    (setf layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer)))
    (setf font (pango:pango_font_description_from_string "Fantasque Sans Mono 10"))
    (pango:pango_layout_set_font_description layout font)
    
-   (setf *font-height* (+ 1 (pango-font-height-hack)))   
+   (setf *font-height* (+ 1 (pango-font-height-hack)))
 
    (sb-thread:make-thread 'handle-repl-key-events :name "keyevents-thread")
-
-   (scale 1.0 1.0)
+   
+   (when *load-xresources?* (pull-x-resources))
    
    (setf triangle-offset (font-scaled 0.35))
    (setf outer-padding (font-scaled 0.25))
@@ -249,22 +295,9 @@
             (draw-subwindows window))))   
    (repl-update-loop))
 
-;; descriptive function names, huh?
-(defun cat (list)
-   (format nil "~{~a~}" list))
-
-(defmacro cats (&rest rest)
-   `(cat (list ,@rest)))
-
-(defun catn (list)
-   (format nil "~{~a~%~}" list))
-
-(defmacro catans (&rest rest)
-   `(catn (list ,@rest)))
-
 (defparameter *padding?* t)
-(defparameter *xresources-path* (cats (sb-ext:posix-getenv "HOME") "/.Xresources"))
 (defparameter *load-xresources?* nil)
+(defparameter *xrm-application-name* "arboreta-repl")
 (defparameter *args* (cdr sb-ext:*posix-argv*))
 
 ;; todo: make general fixed-arity command-line handling library
@@ -277,13 +310,13 @@
                (princ (catans 
                   "arboreta-repl command line options"
                   "   --no-padding       display the prompt at normal line spacing"
-                  "   --load-xresources  pull font and colors from ~/.xresources"
-                  "   --xpath (path)     alternative path to load .xresources"))
+                  "   --use-xresources   pull font and colors from x resource manager"
+                  "   --xrm-name (name)  use x resource settings from a different application, such as URxtv"))
                (sb-ext:exit))
             ("--no-padding" (setf *padding?* nil))
-            ("--load-xresources" (setf *load-xresources?* t))
-            ("--xpath"
-               (setf *xresources-path* (aif (nth (+ i 1) *args*) it (error "no path argument provided to --xpath")))
+            ("--use-xresources" (setf *load-xresources?* t))
+            ("--xrm-name"
+               (setf *xrm-application-name* (aif (nth (+ i 1) *args*) it (error "no path argument provided to --xrm-name")))
                (incf i))
             (otherwise (warn "unrecognized command line argument '~a', ignoring" x))))))
 

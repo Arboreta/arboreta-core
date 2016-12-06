@@ -3,12 +3,17 @@
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
 
-(ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango) :silent t)
+(ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
 
 (defpackage arboreta
   (:use cl iterate anaphora cl-cairo2))
 
 (in-package cl-cairo2)
+
+(defcfun ("XGetDefault" x-get-defualt) :string
+  (display display)
+  (program :string)
+  (option :string))
 
 (defcstruct xbuttonevent
   (type :int)
@@ -171,6 +176,8 @@
      (xdestroywindow display signal-window)
      (xclosedisplay display)))
 
+(defparameter arboreta-display nil)
+
 (defun create-arboreta-window (width height &key (background-color +white+))
   (let ((display (xopendisplay (null-pointer)))
         (window-name (next-xlib-image-context-name)))
@@ -183,6 +190,8 @@
                    :height height
                    :pixel-based-p t
                    :background-color background-color)))
+      
+		(setf arboreta-display (slot-value xlib-image-context 'display))
       ;; start event loop thread
       (setf (slot-value xlib-image-context 'thread)
          (sb-thread:make-thread #'start-event-loop
@@ -199,22 +208,6 @@
       xlib-image-context)))
 
 (in-package arboreta)
-
-;; TODO & NOTES
-;; find a way to fix the screen tearing issue
-;; can we blit windows, or do they just have to be redrawn?
-;; does normal pango layouts allow for smooth scolling?
-;; text selection is going to be really weird, if implemented
-;;   can we pull the font height from pango or fc for highlighting?
-;;   how do we change the cursor to the text selection one?
-;;     do we even have a cursor in wm mode?
-;;   "worse is better" solution
-;;     use internal clipboard, disregard people trying to use the applications by themselves
-;;   alternative ("the right thing") solutions
-;;     try to interface with x font rendering
-;;       that means the main clipboard would need to be used
-;;       using cl-x, probably
-;;     switch platforms -- low preference
 
 (defstruct keypress mods code str)
 (defparameter *key-events* nil)
