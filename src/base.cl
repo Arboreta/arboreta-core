@@ -91,6 +91,7 @@
          ;; remember to update cursor position from here as well
          ((or (= type 2)) ;; type 3 for release
           (with-foreign-slots ((state keycode x y) xev xkeyevent)
+            (setf state (logand state (lognot 16)))
             (let ((code
                (with-slots (display) xlib-image-context 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
