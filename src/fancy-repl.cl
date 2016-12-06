@@ -162,10 +162,11 @@
 (defparameter text-offset 0)
 
 (defun draw-prompt-bg (y-offset)
-   (new-path)
-   (set-hex-color *prompt-bg-color*)
-   (rectangle 0 (+ outer-padding y-offset) w (+ *font-height* (* 2 inner-padding)))
-   (fill-path)
+   (when *draw-prompt-bg?*
+      (new-path)
+      (set-hex-color *prompt-bg-color*)
+      (rectangle 0 (+ outer-padding y-offset) w (+ *font-height* (* 2 inner-padding)))
+      (fill-path))
    
    (move-to 0 (+ outer-padding y-offset))
    (new-path)
@@ -281,6 +282,11 @@
    (setf inner-padding (font-scaled 0.15))
    (setf prompt-offset (font-scaled 0.8))
    (setf text-offset prompt-offset)
+   
+   (unless *padding?* 
+      (setf outer-padding 0)
+      (setf inner-padding 0)
+      (setf triangle-offset (font-scaled 0.20)))
 
    (setf root-window
       (make-window :draw
@@ -297,6 +303,7 @@
 
 (defparameter *padding?* t)
 (defparameter *load-xresources?* nil)
+(defparameter *draw-prompt-bg?* t)
 (defparameter *xrm-application-name* "arboreta-repl")
 (defparameter *args* (cdr sb-ext:*posix-argv*))
 
@@ -308,12 +315,14 @@
           (alexandria:switch (x :test #'equalp)
             ("--help"
                (princ (catans 
-                  "arboreta-repl command line options"
-                  "   --no-padding       display the prompt at normal line spacing"
-                  "   --use-xresources   pull font and colors from x resource manager"
-                  "   --xrm-name (name)  use x resource settings from a different application, such as URxtv"))
+                  "arboreta-repl command line options:"
+                  "   --no-padding         display the prompt at normal line spacing"
+                  "   --no-prompt-shading  disable background shading for the prompt"
+                  "   --use-xresources     pull font and colors from x resource manager"
+                  "   --xrm-name (name)    use x resource settings from a different application, such as URxtv"))
                (sb-ext:exit))
             ("--no-padding" (setf *padding?* nil))
+            ("--no-prompt-shading" (setf *draw-prompt-bg?* nil))
             ("--use-xresources" (setf *load-xresources?* t))
             ("--xrm-name"
                (setf *xrm-application-name* (aif (nth (+ i 1) *args*) it (error "no path argument provided to --xrm-name")))
