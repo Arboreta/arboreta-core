@@ -86,6 +86,8 @@
                      (setf *cursor-index* 0) (center-view))
                (when (and (eql (keypress-code kev) 101) (eql (keypress-mods kev) 4)) ;; C-e
                      (setf *cursor-index* (length *current-input*)) (center-view))
+               (when (and (eql (keypress-code kev) 108) (eql (keypress-mods kev) 4)) ;; C-l
+                     (setf *scroll-offset* *max-scroll*))
                (alexandria::switch ((keypress-str kev) :test #'equalp) 
                   ("Return" (alexandria:appendf *buffer-history* (simple-eval))
                             ;; (print *buffer-history*)
