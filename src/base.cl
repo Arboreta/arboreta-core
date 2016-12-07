@@ -84,9 +84,12 @@
          ((and (= type 12))
           (refresh xlib-image-context)
           nil)
-         ;; clientnotify event
-         ((= type 33)
-          nil)
+         ;; buttonpress (mouse and scrolling) event
+         ((= type 4)
+          (with-foreign-slots ((state button) xev xbuttonevent)
+            (alexandria::appendf arboreta::*mouse-events*
+               (list (list state button)))
+            (finish-output)))
          ;; key press and release events
          ;; remember to update cursor position from here as well
          ((or (= type 2)) ;; type 3 for release
@@ -132,6 +135,7 @@
                               (logior exposuremask
                                       keypressmask
                                       keyreleasemask
+                                      buttonpressmask
                                       structurenotifymask)
                               t))
          (setf signal-window (create-window display root 1 1 'inputonly visual whitepixel 0 nil))
@@ -214,6 +218,8 @@
 
 (defstruct keypress mods code str)
 (defparameter *key-events* nil)
+
+(defparameter *mouse-events* nil)
 
 (defparameter context nil)
 (defparameter surface nil)
