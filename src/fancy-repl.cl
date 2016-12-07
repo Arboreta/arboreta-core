@@ -83,24 +83,29 @@
                      (cairo:destroy context)
                      (sb-ext:exit))
                (when (and (eql (keypress-code kev) 97) (eql (keypress-mods kev) 4)) ;; C-a
-                     (setf *cursor-index* 0))
+                     (setf *cursor-index* 0) (center-view))
                (when (and (eql (keypress-code kev) 101) (eql (keypress-mods kev) 4)) ;; C-e
-                     (setf *cursor-index* (length *current-input*)))
+                     (setf *cursor-index* (length *current-input*)) (center-view))
                (alexandria::switch ((keypress-str kev) :test #'equalp) 
                   ("Return" (alexandria:appendf *buffer-history* (simple-eval))
                             ;; (print *buffer-history*)
                             ;; (finish-output)
                             (setf *current-input* "")
-                            (setf *cursor-index* 0))
+                            (setf *cursor-index* 0)
+                            (center-view))
                   ("left" (unless (eql *cursor-index* 0) (decf *cursor-index*)))
                   ("right" (unless (eql *cursor-index* (length *current-input*)) (incf *cursor-index*)))
+                  ("up" (setf *scroll-offset* (alexandria:clamp (- *scroll-offset* 10) *min-scroll* *max-scroll*)))
+                  ("down" (setf *scroll-offset* (alexandria:clamp (+ *scroll-offset* 10) *min-scroll* *max-scroll*)))
                   ("Shift_L" nil)
                   ("Control_L" nil)
                   ("Control_R" nil)
                   ("Shift_R" nil)
-                  ("BackSpace" (when (and (not (eql *cursor-index* 0)) (> (length *current-input*) 0)) 
-                                     (editor-delete-char)))
-                  (otherwise 
+                  ("BackSpace" (center-view)
+                     (when (and (not (eql *cursor-index* 0)) (> (length *current-input*) 0)) 
+                           (editor-delete-char)))
+                  (otherwise
+                     (center-view) 
                      (when (<= #x20 (keypress-code kev) #x13be) ;; latin chars
                         (editor-insert (if (> (length (keypress-str kev)) 1) 
                                          (string (code-char (keypress-code kev))) 
@@ -152,13 +157,16 @@
             (basic-write *heart*
                (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
-(defstruct repl-result
-   prompt printed-output result
-   static-height)
-
+;; (prompt result printed)
 (defparameter *buffer-history* nil)
 
 (defun line-count (str)
+   (if (equalp str "")
+       0
+       (+ 1 (iter (for c in-string (string-trim '(#\Newline) str)) 
+                  (counting (eql c #\newline))))))
+
+(defun line-count* (str)
    (+ 1 (iter (for c in-string (string-trim '(#\Newline) str)) 
               (counting (eql c #\newline)))))
 
@@ -166,10 +174,13 @@
    (* *font-height* (line-count str)))
 
 (defun total-height (repl-result)
+   (+ (prompt-height (first repl-result))
+      (paragraph-height (second repl-result))
+      (paragraph-height (third repl-result))))
+
+(defun prompt-height (text)
    (+ (* 2 inner-padding) (* 2 outer-padding)
-      (paragraph-height (repl-result-prompt repl-result))
-      (paragraph-height (repl-result-printed-output repl-result))
-      (paragraph-height (repl-result-result repl-result))))
+      (* *font-height* (line-count* text))))
 
 (defparameter *font-height* 0)
 
@@ -227,18 +238,46 @@
 
    (+ *font-height* (* 2 outer-padding) (* 2 inner-padding)))
 
-;; normal lines get 16 px, repl lines get (2 * (innter + outer)) + 16
-;; this *really* needs to be relative to font size
-(defun draw-repl-body (y-offset)
+(defun draw-active-result (str y-offset)
+   (incf y-offset (draw-current-prompt str y-offset)))
+
+(defun draw-result (result y-offset)
+   (incf y-offset (draw-prompt (first result) y-offset))
+   (when (not (equalp (third result) ""))
+         (basic-write (string-trim '(#\Newline) (third result)) *printed-fg-color* text-offset y-offset)
+         (incf y-offset (paragraph-height (string-trim '(#\Newline) (third result)))))
+   (basic-write (second result) *return-form-color* text-offset y-offset)
+   (incf y-offset *font-height*))
+
+(defparameter *max-results* 50)
+(defparameter *scroll-offset* 0) ;; how far down we're currently scrolled
+(defparameter *min-scroll* 0)
+(defparameter *max-scroll* 0)
+
+(defun center-view ()
    (iter (for x in *buffer-history*)
-         (incf y-offset (draw-prompt (first x) y-offset))
-         (when (not (equalp (third x) ""))
-            (basic-write (string-trim '(#\Newline) (third x)) *printed-fg-color* text-offset y-offset)
-            (incf y-offset (* *font-height* (+ 1 (iter (for c in-string (string-trim '(#\Newline) (third x))) 
-					                                        (counting (eql c #\newline)))))))
-         (basic-write (second x) *return-form-color* text-offset y-offset)
-         (incf y-offset *font-height*))
-   (draw-current-prompt *current-input* y-offset))
+         (sum (total-height x) into th)
+         (finally
+            (setf *max-scroll* th)
+            (when (< (+ h *scroll-offset*) th)
+                    (setf *scroll-offset*
+                       (alexandria:clamp (+ (prompt-height *current-input*) (- *max-scroll* h)) 
+                           *min-scroll* *max-scroll*))))))
+
+;; start of viewport = *scroll-offset*
+;; end of viewport = (+ *scroll-offset* h)
+(defun draw-repl-body ()
+   (iter (for x in *buffer-history*)
+         (for rh = (total-height x))
+         (when (or (< *scroll-offset* acc (+ *scroll-offset* h))
+                   (< *scroll-offset* (+ acc rh)))
+               (draw-result x (- acc *scroll-offset*)))
+         (sum rh into acc)
+         (finally 
+            (setf *max-scroll* acc)
+            (when (or (< *scroll-offset* acc (+ *scroll-offset* h))
+                      (< *scroll-offset* (+ acc (prompt-height *current-input*))))
+                  (draw-active-result *current-input* (- acc *scroll-offset*))))))
 
 ;; get the font height by making a layout and then finding the cursor size
 (defun pango-font-height-hack ()
@@ -317,7 +356,7 @@
                (rectangle 0 0 w h)
                (fill-path)
                
-               (draw-repl-body (- outer-padding)))
+               (draw-repl-body))
             (draw-subwindows window))))   
    (repl-update-loop))
 
