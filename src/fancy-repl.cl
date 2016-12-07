@@ -114,16 +114,25 @@
                    ;; (print (* 1000.0 delay))
                    (if (> delay 0) delay 0)))))
 
+;; DO NOT DELETE THIS CODE
+;; it took me too long to make work correctly
+(defparameter *scroll-friction* 0.7)
+(defparameter *scroll-acceleration* 0) ;; px/frame^2
+(defparameter *scroll-velocity* 0)     ;; px/frame
+
 (defun handle-repl-mouse-events ()
    (iter (for x = (+ (get-internal-real-time) 17))
+      (when (or (> (abs *scroll-velocity*) 1) (> (abs *scroll-acceleration*) 1))
+       (setf *scroll-acceleration* (* *scroll-acceleration* *scroll-friction*))
+       (setf *scroll-velocity* (* *scroll-friction* (+ *scroll-velocity* *scroll-acceleration*)))
+       (setf *scroll-offset* (alexandria:clamp (+ *scroll-offset* *scroll-velocity*) *min-scroll* *max-scroll*))
+       (setf *buffer-needs-update* t))
       (if *mouse-events*
          (let ((kev (pop *mouse-events*)))
                (when (eql (second kev) 4) 
-                     (setf *scroll-offset* (alexandria:clamp (- *scroll-offset* 10) *min-scroll* *max-scroll*))
-                     (setf *buffer-needs-update* t))
+                     (decf *scroll-acceleration* 5))
                (when (eql (second kev) 5)
-                     (setf *scroll-offset* (alexandria:clamp (+ *scroll-offset* 10) *min-scroll* *max-scroll*))
-                     (setf *buffer-needs-update* t))))
+                     (incf *scroll-acceleration* 5))))
       (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                    ;; (print (* 1000.0 delay))
                    (if (> delay 0) delay 0)))))
@@ -278,6 +287,19 @@
                        (alexandria:clamp (+ (prompt-height *current-input*) (- *max-scroll* h)) 
                            *min-scroll* *max-scroll*))))))
 
+;; actual space (+ *max-scroll* h)
+;; viewport size
+(defparameter *scrollbar-padding* 2)
+
+(defun draw-scrollbar ()
+   (when (eql *max-scroll* 0) (return-from draw-scrollbar))
+   (let ((sb-start (round (* (- h (* 2 *scrollbar-padding*)) (/ *scroll-offset* (+ h *max-scroll*))))) 
+         (sb-end (round (* (- h (* 2 *scrollbar-padding*)) (/ (+ *scroll-offset* h) (+ h *max-scroll*))))))
+      (set-source-rgba 0.1 0.1 0.1 0.5)
+      (new-path)
+      (rectangle (- w 8) (+ *scrollbar-padding* sb-start) 5 (- sb-end sb-start))
+      (fill-path)))
+
 ;; start of viewport = *scroll-offset*
 ;; end of viewport = (+ *scroll-offset* h)
 (defun draw-repl-body ()
@@ -371,7 +393,8 @@
                (rectangle 0 0 w h)
                (fill-path)
                
-               (draw-repl-body))
+               (draw-repl-body)
+               (draw-scrollbar))
             (draw-subwindows window))))   
    (repl-update-loop))
 
