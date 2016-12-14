@@ -32,9 +32,39 @@
                (setf *cursor-blink-time* (+ (get-internal-real-time) *cursor-blink-delay*))
                (setf *buffer-needs-update* t))))
 
+(defparameter *last-scroll-value* 0)
+(defparameter *scroll-fade-timer* 0)
+
+(defparameter *scroll-fade-delay* 1500)
+(defparameter *scroll-fade-time* 500)
+
+(defparameter *scroll-status* 'hidden)
+
+(defun scrollbar-fade-timer ()
+   (let ((ct (get-internal-real-time)))
+      (case *scroll-status*
+         (active
+            (when (> ct (+ *scroll-fade-timer* *scroll-fade-delay*)) 
+                  (setf *scroll-status* 'fade)))
+         (fade
+            (setf *scrollbar-opacity* 
+               (- 0 (/ (- ct (+ *scroll-fade-timer* *scroll-fade-delay* *scroll-fade-time*)) (* 2 *scroll-fade-time*))))
+            (setf *buffer-needs-update* t)
+            (when (> ct (+ *scroll-fade-timer* *scroll-fade-delay* *scroll-fade-time*)) 
+                  (setf *scroll-status* 'hidden)))
+         (hidden
+            (setf *scrollbar-opacity* 0)))
+    (when (not (eql *last-scroll-value* *scroll-offset*))
+          (setf *scroll-fade-timer* ct)
+          (setf *scroll-status* 'active)
+          (setf *scrollbar-opacity* 0.5)
+          (setf *buffer-needs-update* t))
+    (setf *last-scroll-value* *scroll-offset*)))
+
 (defun repl-update-loop ()
    (iter (for x = (+ (get-internal-real-time) 20))
          (cursor-blink-timer)
+         (scrollbar-fade-timer)
          (when *buffer-needs-update*
             (draw root-window)
             (cairo::refresh context)
@@ -130,20 +160,14 @@
       (if *mouse-events*
          (let ((kev (pop *mouse-events*)))
                (when (eql (second kev) 4) 
-                     (decf *scroll-acceleration* 5))
+                     (decf *scroll-acceleration* 5)
+                     (setf *scroll-acceleration* (* *scroll-acceleration* 1.2)))
                (when (eql (second kev) 5)
-                     (incf *scroll-acceleration* 5))))
+                     (incf *scroll-acceleration* 5)
+                     (setf *scroll-acceleration* (* *scroll-acceleration* 1.2)))))
       (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                    ;; (print (* 1000.0 delay))
                    (if (> delay 0) delay 0)))))
-
-(defparameter *heart* "♥")
-(defparameter *heart-colors* 
-   '(("ae82ff" "dc2566" "fa2772" "d4c96e" "e7db75" "8fc029" "a7e22e" "56b7a5" "66efd5" "55bcce" "66d9ee" "9358fe")
-     ("1693A5" "02AAB0" "00CDAC" "7FFF24" "C3FF68")
-     ("AAFF00" "FFAA00" "FF00AA" "AA00FF" "00AAFF")
-     ("F6D76B" "FF9036" "D6254D" "FF5475" "FDEBA9")
-     ("FDCFBF" "FEB89F" "E23D75" "742365")))
 
 (defun get-block (index size seq)
    (nth index 
@@ -168,17 +192,6 @@
          (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
          (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)
          (pango:g_object_unref pango-layout)))
-
-(defparameter *colorset* (alexandria:random-elt *heart-colors*))
-(defparameter *offset* (alexandria:random-elt (alexandria:iota 5 :start -5)))
-
-(defun draw-hearts ()
-   (iter (for y from 0 to 65 by 15)
-         (for y2 upfrom 0)
-      (iter (for x from -7 to 607 by 14)
-            (for x2 upfrom 0)
-            (basic-write *heart*
-               (nth (mod (+ x2 (* *offset* y2)) (length *colorset*)) *colorset*) x y))))
 
 ;; (prompt result printed)
 (defparameter *buffer-history* nil)
@@ -290,12 +303,13 @@
 ;; actual space (+ *max-scroll* h)
 ;; viewport size
 (defparameter *scrollbar-padding* 2)
+(defparameter *scrollbar-opacity* 0.5)
 
 (defun draw-scrollbar ()
    (when (eql *max-scroll* 0) (return-from draw-scrollbar))
    (let ((sb-start (round (* (- h (* 2 *scrollbar-padding*)) (/ *scroll-offset* (+ h *max-scroll*))))) 
          (sb-end (round (* (- h (* 2 *scrollbar-padding*)) (/ (+ *scroll-offset* h) (+ h *max-scroll*))))))
-      (set-source-rgba 0.1 0.1 0.1 0.5)
+      (set-source-rgba 0.1 0.1 0.1 *scrollbar-opacity*)
       (new-path)
       (rectangle (- w 8) (+ *scrollbar-padding* sb-start) 5 (- sb-end sb-start))
       (fill-path)))

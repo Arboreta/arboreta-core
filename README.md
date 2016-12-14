@@ -35,9 +35,8 @@ It will choke on weird font formats and anything other than plain hex colors.
 
 # Current Roadmap:
 
-* window clipping
+* window clipping (not necessary until actual windows are created)
 * window resizing
-* mouse event handling
 * arboreta-specific constructs for font, text, editable text, ect.
 * design data-based or hybrid window system, which can be optimized a lot whole more than the lambda model
 * figure out how to get screen dimensions for wm mode so it's the right size
@@ -48,6 +47,7 @@ It will choke on weird font formats and anything other than plain hex colors.
 * standard input handling and better evaluation, in a new thread
 * figure out how to interface with sbcl in such a way conditions can be displayed graphically
 * general interface primitives -- menus, items, ect.
+* drawing primitives -- color, shape, ect.
 * install script that auto-generates the sesssion manager and desktop files
 * listener REPL ala swank
 * symbol translation table layer
