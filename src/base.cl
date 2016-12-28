@@ -1,12 +1,11 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (declaim (optimize (speed 0) (safety 3) (debug 3))))
+(declaim (optimize (speed 0) (safety 3) (debug 3)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
 
-(eval-when (:load-toplevel)
-  (ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
-  (load "cl-xkb.cl" :if-does-not-exist nil))
+;; I've left this stuff as-is so that arboreta-repl still works.
+(ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
+(load "cl-xkb.cl" :if-does-not-exist nil)
 
 (defpackage arboreta
   (:use cl iterate anaphora cl-cairo2))
