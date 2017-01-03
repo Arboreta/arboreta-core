@@ -1,11 +1,11 @@
-(proclaim '(optimize (speed 0) (safety 3) (debug 3)))
+(declaim (optimize (speed 0) (safety 3) (debug 3)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
 
+;; I've left this stuff as-is so that arboreta-repl still works.
 (ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
-
-(load "cl-xkb.cl")
+(load "cl-xkb.cl" :if-does-not-exist nil)
 
 (defpackage arboreta
   (:use cl iterate anaphora cl-cairo2))
@@ -61,11 +61,11 @@
   (display display))
 
 (defun refresh (xlib-image-context)
-   ;; (print "refresh")
-   (with-slots (context (display-pointer display) dest-surface) xlib-image-context
-      (cairo_paint (xlib-context xlib-image-context))
-      (cairo_surface_flush dest-surface)
-      ))
+  ;; (print "refresh")
+  (with-slots ((display-pointer display) dest-surface) xlib-image-context
+    (cairo_paint (xlib-context xlib-image-context))
+    (cairo_surface_flush dest-surface)
+    ))
 
 (defparameter initialization-done? nil)
 
@@ -254,7 +254,7 @@
    (push source-window (gethash 'subwindows (window-attributes target-window))))
 
 (defun pango-update ()
-   (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) layout)
+  (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) layout)
    (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) layout))
 
 (defun flush-surface ()
