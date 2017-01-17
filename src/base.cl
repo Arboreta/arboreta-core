@@ -12,6 +12,16 @@
 
 (in-package cl-cairo2)
 
+(defcfun ("XChangeProperty" xchangeproperty) :int
+  (display display)
+  (window window)
+  (property xatom)
+  (atom-type xatom)
+  (format :int)
+  (mode :int)
+  (data :pointer)
+  (nelements :int))
+
 (defcfun ("XGetDefault" x-get-defualt) :string
   (display display)
   (program :string)
@@ -114,6 +124,9 @@
 
 (defparameter event-handling-function #'default-event-handling)
 
+(defparameter net-wm-type nil)
+(defparameter net-wm-type-target nil)
+
 (defun start-event-loop (xlib-image-context width height window-name)
    (finish-output)
    (call-xinitthreads)
@@ -145,12 +158,21 @@
          ;; respect this)
          (set-window-size-hints display this-window width width height height)
          ;; intern atom for window closing, set protocol on window
+
          (setf wm-delete-window (xinternatom display "WM_DELETE_WINDOW" 1))
          (with-foreign-object (prot 'xatom)
            (setf (mem-aref prot 'xatom) wm-delete-window)
            (xsetwmprotocols display this-window prot 1))
+			
          ;; store name
          (xstorename display this-window window-name)
+			;; set window type
+         (setf net-wm-type (xinternatom display "_NET_WM_WINDOW_TYPE" 1))
+			(setf net-wm-type-target (xinternatom display "_NET_WM_WINDOW_TYPE_POPUP_MENU" 1))
+			
+			(with-foreign-object (prop2 'xatom)
+			  (setf (mem-aref prop2 'xatom) net-wm-type-target)
+			  (xchangeproperty display this-window net-wm-type 4 32 0 prop2 1))
          ;; first we create an X11 surface and context on the window
          (let ((xlib-surface (cairo_xlib_surface_create display this-window visual width height)))
            (setf xlib-context (cairo_create xlib-surface))
