@@ -74,12 +74,11 @@
   ;; (print "refresh")
   (with-slots ((display-pointer display) dest-surface) xlib-image-context
     (cairo_paint (xlib-context xlib-image-context))
-    (cairo_surface_flush dest-surface)
-    ))
+    (cairo_surface_flush dest-surface)))
 
-(defparameter initialization-done? nil)
+(defstruct keypress mods code str)
 
-(defun handle-event (xlib-image-context)
+(defun handle-event (xlib-image-context window)
    (with-foreign-object (xev :long 24)
      ;; get next event
      (with-slots (display) xlib-image-context
@@ -108,26 +107,23 @@
             (let ((code
                (with-slots (display) xlib-image-context 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
-              (alexandria::appendf arboreta::*key-events* 
+              (alexandria::appendf (slot-value window 'event-queue) 
                  (list (if (zerop code) 
-                           (arboreta::make-keypress :mods state 
-                                                    :code (with-slots (display) xlib-image-context 
-                                                             (xkb::xkb-keycode->keysym display keycode 0 0)) 
-                                                    :str nil)
-                           (arboreta::make-keypress :mods state
-                                                    :code code
-                                                    :str (xkb::get-keysym-name code)))))))))
+                           (make-keypress 
+                              :mods state 
+                              :code (with-slots (display) xlib-image-context 
+                                      (xkb::xkb-keycode->keysym display keycode 0 0)) 
+                              :str nil)
+                           (make-keypress 
+                              :mods state
+                              :code code
+                              :str (xkb::get-keysym-name code)))))))))
       t)))
-
-(defun default-event-handling (xlib-image-context)
-   (loop (handle-event xlib-image-context)))
-
-(defparameter event-handling-function #'default-event-handling)
 
 (defparameter net-wm-type nil)
 (defparameter net-wm-type-target nil)
 
-(defun start-event-loop (xlib-image-context width height window-name)
+(defun setup-window (xlib-image-context width height window-name)
    (finish-output)
    (call-xinitthreads)
    (bind (((:slots display signal-window (this-window window)
@@ -163,16 +159,16 @@
          (with-foreign-object (prot 'xatom)
            (setf (mem-aref prot 'xatom) wm-delete-window)
            (xsetwmprotocols display this-window prot 1))
-			
+         
          ;; store name
          (xstorename display this-window window-name)
-			;; set window type
+         ;; set window type
          (setf net-wm-type (xinternatom display "_NET_WM_WINDOW_TYPE" 1))
-			(setf net-wm-type-target (xinternatom display "_NET_WM_WINDOW_TYPE_POPUP_MENU" 1))
-			
-			(with-foreign-object (prop2 'xatom)
-			  (setf (mem-aref prop2 'xatom) net-wm-type-target)
-			  (xchangeproperty display this-window net-wm-type 4 32 0 prop2 1))
+         (setf net-wm-type-target (xinternatom display "_NET_WM_WINDOW_TYPE_NORMAL" 1))
+         
+         (with-foreign-object (prop2 'xatom)
+           (setf (mem-aref prop2 'xatom) net-wm-type-target)
+           (xchangeproperty display this-window net-wm-type 4 32 0 prop2 1))
          ;; first we create an X11 surface and context on the window
          (let ((xlib-surface (cairo_xlib_surface_create display this-window visual width height)))
            (setf xlib-context (cairo_create xlib-surface))
@@ -185,14 +181,9 @@
          ;; map window
          (xmapwindow display this-window)
          ;; end of synchronizing
-         (xsynchronize display 0)
-         ;; end of initialization
-         (setf initialization-done? t)
-         ;; EVENT LOOP
-         (sb-thread:abort-thread)
-         ;; (funcall event-handling-function xlib-image-context)
-         )
-   ;; close down everything
+         (xsynchronize display 0)))
+
+(defun clean-shutdown (xlib-image-context)
    (with-slots (display pixmap window signal-window pointer xlib-context dest-surface) xlib-image-context
      (xsynchronize display 1)
      (let ((saved-pointer pointer))
@@ -205,9 +196,7 @@
      (xdestroywindow display signal-window)
      (xclosedisplay display)))
 
-(defparameter arboreta-display nil)
-
-(defun create-arboreta-window (width height &key (background-color +white+))
+(defun create-window* (width height &key (background-color +white+))
   (let ((display (xopendisplay (null-pointer)))
         (window-name (next-xlib-image-context-name)))
         (when (null-pointer-p display)
@@ -219,15 +208,7 @@
                    :height height
                    :pixel-based-p t
                    :background-color background-color)))
-      
-      (setf arboreta-display (slot-value xlib-image-context 'display))
-      ;; start event loop thread
-      (setf (slot-value xlib-image-context 'thread)
-         (sb-thread:make-thread #'start-event-loop
-                 :name (format nil "thread for display")
-                 :arguments (list xlib-image-context width height window-name)))
-      ;; wait for initialization to finish
-      (loop until initialization-done?)
+      (setup-window xlib-image-context width height window-name)
       ;; paint it if we are given a background color
       (when background-color
             (set-source-color background-color xlib-image-context)
@@ -238,54 +219,21 @@
 
 (in-package arboreta)
 
-(defstruct keypress mods code str)
-(defparameter *key-events* nil)
+(defclass arboreta-window ()
+   ((image-context 
+      :initarg :image-context
+      :initform (error "context must be supplied")
+      :accessor image-context)
+    (event-queue
+      :initarg :event-queue
+      :initform nil
+      :accessor event-queue)))
 
-(defparameter *mouse-events* nil)
+(defmethod update ((window arboreta-window))
+   (cairo::refresh (image-context window)))
 
-(defparameter context nil)
-(defparameter surface nil)
-(defparameter layout nil)
-(defparameter font nil)
+(defmethod shutdown ((window arboreta-window))
+   (cairo::clean-shutdown (image-context window)))
 
-(defparameter w 600)
-(defparameter h 400)
-
-(defstruct window
-   (attributes (make-hash-table :test #'eq))
-   (draw nil))
-
-(defun draw (window)
-   (funcall (window-draw window) window))
-
-(defun draw-subwindows (window)
-   (awhen (gethash 'subwindows (window-attributes window))
-          (iter (for x in it)
-                (draw x))))
-
-(defparameter root-window 
-   (make-window :draw 
-      (lambda (window)
-         (new-path)
-         (set-source-rgb 37/255 46/255 50/255)
-         (rectangle 0 0 w h)
-         (fill-path)
-         (draw-subwindows window))))
-
-(defun add-as-subwindow (source-window target-window)
-   (push source-window (gethash 'subwindows (window-attributes target-window))))
-
-(defun pango-update ()
-  (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) layout)
-   (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) layout))
-
-(defun flush-surface ()
-   (cairo::refresh context))
-
-(defun window-update-loop ()
-   (iter (for x = (+ (get-internal-real-time) 16))
-         (draw root-window)        
-         (cairo::refresh context)
-         (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
-                      ;; (print (* 1000.0 delay))
-                      (if (> delay 0) delay 0)))))
+(defun make-window (width height)
+   (make-instance 'arboreta-window :image-context (cairo::create-window* width height)))
