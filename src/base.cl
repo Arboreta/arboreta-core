@@ -78,10 +78,10 @@
 
 (defstruct keypress mods code str)
 
-(defun handle-event (xlib-image-context window)
+(defun handle-event (window)
    (with-foreign-object (xev :long 24)
      ;; get next event
-     (with-slots (display) xlib-image-context
+     (with-slots (display) (arboreta::image-context window)
         (if (> (xpending display) 0)
             (xnextevent display xev)
             (return-from handle-event nil)))
@@ -91,12 +91,12 @@
        (cond
          ;; expose events
          ((and (= type 12))
-          (refresh xlib-image-context)
+          (update window)
           nil)
          ;; buttonpress (mouse and scrolling) event
          ((= type 4)
           (with-foreign-slots ((state button) xev xbuttonevent)
-            (alexandria::appendf arboreta::*mouse-events*
+            (alexandria::appendf (arboreta::event-queue window)
                (list (list state button)))
             (finish-output)))
          ;; key press and release events
@@ -107,7 +107,7 @@
             (let ((code
                (with-slots (display) xlib-image-context 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
-              (alexandria::appendf (slot-value window 'event-queue) 
+              (alexandria::appendf (arboreta::event-queue window) 
                  (list (if (zerop code) 
                            (make-keypress 
                               :mods state 
@@ -227,7 +227,10 @@
     (event-queue
       :initarg :event-queue
       :initform nil
-      :accessor event-queue)))
+      :accessor event-queue)
+    (root-container
+		:initform nil
+		:accessor root-container)))
 
 (defmethod update ((window arboreta-window))
    (cairo::refresh (image-context window)))
@@ -237,3 +240,21 @@
 
 (defun make-window (width height)
    (make-instance 'arboreta-window :image-context (cairo::create-window* width height)))
+
+(defmethod start-update-loop ((window arboreta-window))
+   (iter (for x = (+ (get-internal-real-time) 20))
+			(if (root-container window)
+				 ())
+         (when *buffer-needs-update*
+            (draw root-window)
+            (cairo::refresh context)
+            (setf *buffer-needs-update* nil))
+         (iter (while (cairo::handle-event context)))
+         (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                      ;; (print (* 1000.0 delay))
+                      (if (> delay 0) delay 0)))))
+
+(defclass container ()
+	(x y subwindows))
+
+(defmethod )
