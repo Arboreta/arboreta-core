@@ -9,7 +9,7 @@
 
 (defpackage arboreta
   (:shadowing-import-from dynamic-classes defclass make-instance)
-  (:use cl iterate anaphora cl-cairo2 ))
+  (:use cl iterate anaphora cl-cairo2))
 
 (in-package cl-cairo2)
 
@@ -79,10 +79,10 @@
 
 (defstruct keypress mods code str)
 
-(defun handle-event (window)
+(defun handle-event (arboreta-window)
    (with-foreign-object (xev :long 24)
      ;; get next event
-     (with-slots (display) (arboreta::image-context window)
+     (with-slots (display) (arboreta::image-context arboreta-window)
         (if (> (xpending display) 0)
             (xnextevent display xev)
             (return-from handle-event nil)))
@@ -92,12 +92,12 @@
        (cond
          ;; expose events
          ((and (= type 12))
-          (update window)
+          (arboreta::update arboreta-window)
           nil)
          ;; buttonpress (mouse and scrolling) event
          ((= type 4)
           (with-foreign-slots ((state button) xev xbuttonevent)
-            (alexandria::appendf (arboreta::event-queue window)
+            (alexandria::appendf (arboreta::event-queue arboreta-window)
                (list (list state button)))
             (finish-output)))
          ;; key press and release events
@@ -106,13 +106,13 @@
           (with-foreign-slots ((state keycode x y) xev xkeyevent)
             (setf state (logand state (lognot 16)))
             (let ((code
-               (with-slots (display) xlib-image-context 
+               (with-slots (display) (arboreta::image-context arboreta-window) 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
-              (alexandria::appendf (arboreta::event-queue window) 
+              (alexandria::appendf (arboreta::event-queue arboreta-window)
                  (list (if (zerop code) 
                            (make-keypress 
                               :mods state 
-                              :code (with-slots (display) xlib-image-context 
+                              :code (with-slots (display) (arboreta::image-context arboreta-window) 
                                       (xkb::xkb-keycode->keysym display keycode 0 0)) 
                               :str nil)
                            (make-keypress 
@@ -221,7 +221,9 @@
 (in-package arboreta)
 
 (defclass window ()
-   (image-context (error "context must be supplied"))
+   (width (error "must supply width"))
+   (height (error "must supply height"))
+   (image-context nil)
    (event-queue nil)
    (root-container nil)
    
@@ -231,25 +233,39 @@
    (shutdown ((window window))
       (cairo::clean-shutdown (image-context window)))
    
+   (:after initialize-instance ((window window) &key)
+      (with-slots (width height) window
+         (setf (image-context window) (cairo::create-window* width height))))
+
    (start-drawing ((window window))
       (iter (for x = (+ (get-internal-real-time) 20))
             (when (root-container window)
-               (draw (root-container window))
+               (with-context ((image-context window))
+                  (draw (root-container window)))
                (update window))
                (iter (while (cairo::handle-event window)))
-            (sleep 
-               (let ((delay (/ (- x (get-internal-real-time)) 1000)))
-                     (if (> delay 0) delay 0)))))
+            (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                         (if (> delay 0) delay 0)))))
    
    (handle-events ((window window))
       (setf (event-queue window) nil)))
 
-(defun make-window (width height)
-   (make-instance window :image-context (cairo::create-window* width height)))
-
 (defclass container ()
    (x 0)
    (y 0)
+   (width 0)
+   (height 0)
    (subcontainers nil)
    
-   (draw ((container container)) nil))
+   (draw ((container container))
+      (with-slots (subcontainers) container 
+         (when subcontainers
+           (iter (for c in subcontainers) (draw c))))))
+
+(defclass test-container (container)
+   (draw ((container container))
+      (with-slots (x y width height) container
+         (new-path)
+         (set-source-rgb 30/255 200/255 100/255)
+         (rectangle x y (+ x width) (+ y height))
+         (fill-path))))
