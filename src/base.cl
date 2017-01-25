@@ -220,6 +220,22 @@
 
 (in-package arboreta)
 
+(defun get-block (index size seq)
+   (nth index 
+      (iter (for x from 0 to (length seq) by size)
+            (for y from size to (length seq) by size)
+            (collect (subseq seq x y)))))
+
+(defun set-hex-color (hex)
+   (let ((colors (mapcar (lambda (x) (/ (parse-integer x :radix 16) 256)) 
+                         (iter (for i from 0 to 2) (collect (get-block i 2 hex))))))
+         (set-source-rgb (first colors) (second colors) (third colors))))
+
+(defun draw-rectangle (x y x2 y2)
+   (new-path)
+   (rectangle x y x2 y2)
+   (fill-path))
+
 (defclass window ()
    (width (error "must supply width"))
    (height (error "must supply height"))
@@ -240,12 +256,12 @@
    (start-drawing ((window window))
       (iter (for x = (+ (get-internal-real-time) 20))
             (when (root-container window)
-               (with-context ((image-context window))
-                  (draw (root-container window)))
-               (update window))
-               (iter (while (cairo::handle-event window)))
-            (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
-                         (if (> delay 0) delay 0)))))
+                  (with-context ((image-context window))
+                    (draw (root-container window)))
+                  (update window))
+                  (iter (while (cairo::handle-event window)))
+            (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                  (sleep (if (> delay 0) delay 0)))))
    
    (handle-events ((window window))
       (setf (event-queue window) nil)))
@@ -261,11 +277,3 @@
       (with-slots (subcontainers) container 
          (when subcontainers
            (iter (for c in subcontainers) (draw c))))))
-
-(defclass test-container (container)
-   (draw ((container container))
-      (with-slots (x y width height) container
-         (new-path)
-         (set-source-rgb 30/255 200/255 100/255)
-         (rectangle x y (+ x width) (+ y height))
-         (fill-path))))

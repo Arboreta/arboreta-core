@@ -9,7 +9,7 @@
   :depends-on 
     (alexandria anaphora cl-cairo2
      cl-cairo2-xlib cl-colors cl-pango
-     cl-ppcre iterate)
+     cl-ppcre iterate dynamic-classes)
   :components 
     ((:module :src
       :components
