@@ -20,7 +20,7 @@
             (with-slots (x y width height) this
                (setf (red-value this) (mod (+ (red-value this) 1/255) 1))
                (set-source-rgb (red-value this) 50/255 50/255)
-               (draw-rectangle x y (+ x width) (+ y height))))))
+               (draw-rectangle 0 0 width height)))))
    (setf root (root-container window))
    (start-drawing window))
 

@@ -274,7 +274,16 @@
    (height 0)
    (subcontainers nil)
    
-   (draw ((container container))
-      (with-slots (subcontainers) container 
+   (draw (*this*)
+      (with-slots (subcontainers) this 
          (when subcontainers
-           (iter (for c in subcontainers) (draw c))))))
+           (iter (for c in subcontainers) (draw c)))))
+   
+   (:before draw (*this*)
+      (with-slots (x y width height) this 
+         (reset-clip)
+         (reset-trans-matrix)
+         (new-path)
+         (rectangle x y width height)
+         (clip)
+         (translate x y))))
