@@ -35,6 +35,7 @@ It will choke on weird font formats and anything other than plain hex colors.
 
 # Current Roadmap:
 
+* better event structure
 * window clipping (not necessary until actual windows are created)
 * window resizing
 * arboreta-specific constructs for font, text, editable text, ect.

@@ -231,9 +231,9 @@
                          (iter (for i from 0 to 2) (collect (get-block i 2 hex))))))
          (set-source-rgb (first colors) (second colors) (third colors))))
 
-(defun draw-rectangle (x y x2 y2)
+(defun draw-rectangle (x y w h)
    (new-path)
-   (rectangle x y x2 y2)
+   (rectangle x y w h)
    (fill-path))
 
 (defclass window ()
@@ -259,6 +259,7 @@
                   (with-context ((image-context window))
                     (draw (root-container window)))
                   (update window))
+                  (handle-events window)
                   (iter (while (cairo::handle-event window)))
             (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                   (sleep (if (> delay 0) delay 0)))))
