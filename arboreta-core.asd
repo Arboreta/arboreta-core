@@ -2,7 +2,7 @@
   ((type :initform "cl")))
 
 (defsystem "arboreta-core"
-  :name "arboreta-core" 
+  :name "arboreta-core"
   :serial t
   :version "0.3"
   :author "Dylan Ball <Arathnim@gmail.com>"

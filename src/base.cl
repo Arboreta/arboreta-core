@@ -4,11 +4,12 @@
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
 
 ;; I've left this stuff as-is so that arboreta-repl still works.
-(ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre) :silent t)
+(ql:quickload '(alexandria iterate anaphora cl-cairo2 cl-cairo2-xlib cl-pango cl-colors cl-ppcre dynamic-classes) :silent t)
 (load "cl-xkb.cl" :if-does-not-exist nil)
 
 (defpackage arboreta
-  (:use cl iterate anaphora cl-cairo2))
+  (:shadowing-import-from dynamic-classes defclass make-instance)
+  (:use cl iterate anaphora cl-cairo2 ))
 
 (in-package cl-cairo2)
 
@@ -219,42 +220,36 @@
 
 (in-package arboreta)
 
-(defclass arboreta-window ()
-   ((image-context 
-      :initarg :image-context
-      :initform (error "context must be supplied")
-      :accessor image-context)
-    (event-queue
-      :initarg :event-queue
-      :initform nil
-      :accessor event-queue)
-    (root-container
-		:initform nil
-		:accessor root-container)))
-
-(defmethod update ((window arboreta-window))
-   (cairo::refresh (image-context window)))
-
-(defmethod shutdown ((window arboreta-window))
-   (cairo::clean-shutdown (image-context window)))
+(defclass window ()
+   (image-context (error "context must be supplied"))
+   (event-queue nil)
+   (root-container nil)
+   
+   (update ((window window))
+      (cairo::refresh (image-context window)))
+   
+   (shutdown ((window window))
+      (cairo::clean-shutdown (image-context window)))
+   
+   (start-drawing ((window window))
+      (iter (for x = (+ (get-internal-real-time) 20))
+            (when (root-container window)
+               (draw (root-container window))
+               (update window))
+               (iter (while (cairo::handle-event window)))
+            (sleep 
+               (let ((delay (/ (- x (get-internal-real-time)) 1000)))
+                     (if (> delay 0) delay 0)))))
+   
+   (handle-events ((window window))
+      (setf (event-queue window) nil)))
 
 (defun make-window (width height)
-   (make-instance 'arboreta-window :image-context (cairo::create-window* width height)))
-
-(defmethod start-update-loop ((window arboreta-window))
-   (iter (for x = (+ (get-internal-real-time) 20))
-			(if (root-container window)
-				 ())
-         (when *buffer-needs-update*
-            (draw root-window)
-            (cairo::refresh context)
-            (setf *buffer-needs-update* nil))
-         (iter (while (cairo::handle-event context)))
-         (sleep (let ((delay (/ (- x (get-internal-real-time)) 1000)))
-                      ;; (print (* 1000.0 delay))
-                      (if (> delay 0) delay 0)))))
+   (make-instance window :image-context (cairo::create-window* width height)))
 
 (defclass container ()
-	(x y subwindows))
-
-(defmethod )
+   (x 0)
+   (y 0)
+   (subcontainers nil)
+   
+   (draw ((container container)) nil))
