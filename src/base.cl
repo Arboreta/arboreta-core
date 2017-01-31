@@ -1,4 +1,4 @@
-(declaim (optimize (speed 0) (safety 3) (debug 3)))
+(declaim (optimize (speed 0) (safety 3) (debug 3) (space 0)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))

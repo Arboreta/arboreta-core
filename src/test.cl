@@ -26,5 +26,4 @@
    (setf root (root-container window))
    (start-drawing window))
 
-;; (sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
-
+(sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
