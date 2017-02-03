@@ -2,6 +2,8 @@
 
 (in-package arboreta)
 
+(setf *print-pretty* nil)
+
 (defparameter window nil)
 (defparameter root nil)
 
@@ -15,8 +17,11 @@
          (handle-events (*this*)
             (with-slots (event-queue) this
                (when event-queue
-                  (print (pop event-queue))
-                  (finish-output))))))
+						(let ((e (pop event-queue)))
+							(format t "~s~%" e)
+							(finish-output)
+							(when (and (eq (first e) :keypress) (equalp (second e) 4) (equalp (third e) 113)) ;; C-q
+								(sb-ext:exit))))))))
    (setf (root-container window)
       (rect :width 600 :height 400 :color "252E32"
          (vertical-list :width 600 :height 400
@@ -26,4 +31,5 @@
    (setf root (root-container window))
    (start-drawing window))
 
-(sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
+;; (sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
+

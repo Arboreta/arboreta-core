@@ -1,4 +1,4 @@
-(declaim (optimize (speed 0) (safety 3) (debug 3) (space 0)))
+;;(declaim (optimize (speed 0) (safety 3) (debug 3) (space 0)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
@@ -77,8 +77,6 @@
     (cairo_paint (xlib-context xlib-image-context))
     (cairo_surface_flush dest-surface)))
 
-(defstruct keypress mods code str)
-
 (defun handle-event (arboreta-window)
    (with-foreign-object (xev :long 24)
      ;; get next event
@@ -98,7 +96,7 @@
          ((= type 4)
           (with-foreign-slots ((state button) xev xbuttonevent)
             (alexandria::appendf (arboreta::event-queue arboreta-window)
-               (list (list state button)))
+               (list (list :scroll state button)))
             (finish-output)))
          ;; key press and release events
          ;; remember to update cursor position from here as well
@@ -109,16 +107,18 @@
                (with-slots (display) (arboreta::image-context arboreta-window) 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
               (alexandria::appendf (arboreta::event-queue arboreta-window)
-                 (list (if (zerop code) 
-                           (make-keypress 
-                              :mods state 
-                              :code (with-slots (display) (arboreta::image-context arboreta-window) 
-                                      (xkb::xkb-keycode->keysym display keycode 0 0)) 
-                              :str nil)
-                           (make-keypress 
-                              :mods state
-                              :code code
-                              :str (xkb::get-keysym-name code)))))))))
+                 (if (zerop code) 
+                     (list
+								(list :keypress 
+									 state 
+									 (with-slots (display) (arboreta::image-context arboreta-window) 
+										(xkb::xkb-keycode->keysym display keycode 0 0)) 
+									 nil))
+                     (list 
+								(list :keypress 
+									 state
+									 code
+									 (xkb::get-keysym-name code)))))))))
       t)))
 
 (defparameter net-wm-type nil)
@@ -242,7 +242,7 @@
    (image-context nil)
    (event-queue nil)
    (root-container nil)
-   
+
    (update ((window window))
       (cairo::refresh (image-context window)))
    
@@ -273,6 +273,7 @@
    (width 0)
    (height 0)
    (subcontainers nil)
+   (above nil)
    
    (draw-subs (*this*)
       (with-slots (subcontainers) this 
