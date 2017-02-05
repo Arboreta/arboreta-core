@@ -60,6 +60,21 @@
   (state :int)
   (keycode :int))
 
+(defcstruct xmotionevent
+  (type :int)
+  (serial :unsigned-long)
+  (send-event bool)
+  (display display)
+  (window window)
+  (root window)
+  (subwindow window)
+  (time :long)
+  (x :int)
+  (y :int)
+  (x-root :int)
+  (y-root :int)
+  (state :int))
+
 (defcfun ("XKeycodeToKeysym" xkeycode->keysym) :int
   (display display)
   (keycode :int)
@@ -92,12 +107,15 @@
          ((and (= type 12))
           (arboreta::update arboreta-window)
           nil)
-         ;; buttonpress (mouse and scrolling) event
+         ;; button press (mouse) events
          ((= type 4)
-          (with-foreign-slots ((state button) xev xbuttonevent)
+          (with-foreign-slots ((state button x y) xev xbuttonevent)
             (alexandria::appendf (arboreta::event-queue arboreta-window)
-               (list (list :scroll state button)))
-            (finish-output)))
+                                 (list (list :mouse state button x y)))))
+         ((= type 6)
+            (with-foreign-slots ((state x y) xev xmotionevent)
+            (alexandria::appendf (arboreta::event-queue arboreta-window)
+                                 (list (list :hover state x y)))))
          ;; key press and release events
          ;; remember to update cursor position from here as well
          ((or (= type 2)) ;; type 3 for release
@@ -109,16 +127,16 @@
               (alexandria::appendf (arboreta::event-queue arboreta-window)
                  (if (zerop code) 
                      (list
-								(list :keypress 
-									 state 
-									 (with-slots (display) (arboreta::image-context arboreta-window) 
-										(xkb::xkb-keycode->keysym display keycode 0 0)) 
-									 nil))
+                        (list :keypress 
+                            state 
+                            (with-slots (display) (arboreta::image-context arboreta-window) 
+                              (xkb::xkb-keycode->keysym display keycode 0 0)) 
+                            nil))
                      (list 
-								(list :keypress 
-									 state
-									 code
-									 (xkb::get-keysym-name code)))))))))
+                        (list :keypress 
+                            state
+                            code
+                            (xkb::get-keysym-name code)))))))))
       t)))
 
 (defparameter net-wm-type nil)
@@ -146,6 +164,7 @@
                                       keypressmask
                                       keyreleasemask
                                       buttonpressmask
+                                      pointermotionmask
                                       structurenotifymask)
                               t))
          (setf signal-window (create-window display root 1 1 'inputonly visual whitepixel 0 nil))
@@ -235,6 +254,18 @@
    (new-path)
    (rectangle x y w h)
    (fill-path))
+
+(defun basic-write (str font color x y)
+   (let ((pango-layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer))))
+         (pango:pango_layout_set_font_description pango-layout font)             
+         (new-path)
+         (move-to x y)
+         (set-hex-color color)
+         (pango:pango_layout_set_text pango-layout str -1)
+                                    
+         (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
+            (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)
+               (pango:g_object_unref pango-layout)))
 
 (defclass window ()
    (width (error "must supply width"))
