@@ -24,7 +24,7 @@
    
    (handle-events (*this*)
       (with-slots (event-queue) this
-         (when event-queue
+         (iter (while event-queue)
             (let ((e (pop event-queue)))
                (when (and (eq (first e) :keypress) (equalp (second e) 4) (equalp (third e) 113)) ;; C-q
                   (sb-ext:exit))))))
