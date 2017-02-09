@@ -1,4 +1,4 @@
-(declaim (optimize (speed 0) (safety 3) (debug 3)))
+;;(declaim (optimize (speed 0) (safety 3) (debug 3) (space 0)))
 
 (declaim #+sbcl(sb-ext:muffle-conditions style-warning))
 (declaim #+sbcl(sb-ext:muffle-conditions warning))
@@ -60,6 +60,21 @@
   (state :int)
   (keycode :int))
 
+(defcstruct xmotionevent
+  (type :int)
+  (serial :unsigned-long)
+  (send-event bool)
+  (display display)
+  (window window)
+  (root window)
+  (subwindow window)
+  (time :long)
+  (x :int)
+  (y :int)
+  (x-root :int)
+  (y-root :int)
+  (state :int))
+
 (defcfun ("XKeycodeToKeysym" xkeycode->keysym) :int
   (display display)
   (keycode :int)
@@ -77,8 +92,6 @@
     (cairo_paint (xlib-context xlib-image-context))
     (cairo_surface_flush dest-surface)))
 
-(defstruct keypress mods code str)
-
 (defun handle-event (arboreta-window)
    (with-foreign-object (xev :long 24)
      ;; get next event
@@ -94,12 +107,15 @@
          ((and (= type 12))
           (arboreta::update arboreta-window)
           nil)
-         ;; buttonpress (mouse and scrolling) event
+         ;; button press (mouse) events
          ((= type 4)
-          (with-foreign-slots ((state button) xev xbuttonevent)
+          (with-foreign-slots ((state button x y) xev xbuttonevent)
             (alexandria::appendf (arboreta::event-queue arboreta-window)
-               (list (list state button)))
-            (finish-output)))
+                                 (list (list :mouse state button x y)))))
+         ((= type 6)
+            (with-foreign-slots ((state x y) xev xmotionevent)
+            (alexandria::appendf (arboreta::event-queue arboreta-window)
+                                 (list (list :hover state x y)))))
          ;; key press and release events
          ;; remember to update cursor position from here as well
          ((or (= type 2)) ;; type 3 for release
@@ -109,16 +125,18 @@
                (with-slots (display) (arboreta::image-context arboreta-window) 
                   (xkb::xkb-keycode->keysym display keycode 0 state))))
               (alexandria::appendf (arboreta::event-queue arboreta-window)
-                 (list (if (zerop code) 
-                           (make-keypress 
-                              :mods state 
-                              :code (with-slots (display) (arboreta::image-context arboreta-window) 
-                                      (xkb::xkb-keycode->keysym display keycode 0 0)) 
-                              :str nil)
-                           (make-keypress 
-                              :mods state
-                              :code code
-                              :str (xkb::get-keysym-name code)))))))))
+                 (if (zerop code) 
+                     (list
+                        (list :keypress 
+                            state 
+                            (with-slots (display) (arboreta::image-context arboreta-window) 
+                              (xkb::xkb-keycode->keysym display keycode 0 0)) 
+                            nil))
+                     (list 
+                        (list :keypress 
+                            state
+                            code
+                            (xkb::get-keysym-name code)))))))))
       t)))
 
 (defparameter net-wm-type nil)
@@ -146,6 +164,7 @@
                                       keypressmask
                                       keyreleasemask
                                       buttonpressmask
+                                      pointermotionmask
                                       structurenotifymask)
                               t))
          (setf signal-window (create-window display root 1 1 'inputonly visual whitepixel 0 nil))
@@ -236,13 +255,24 @@
    (rectangle x y w h)
    (fill-path))
 
+(defun basic-write (str font color x y)
+   (let ((pango-layout (pango:pango_cairo_create_layout (slot-value cairo:*context* 'cairo::pointer))))
+         (pango:pango_layout_set_font_description pango-layout font)             
+         (new-path)
+         (move-to x y)
+         (set-hex-color color)
+         (pango:pango_layout_set_text pango-layout str -1)
+                                    
+         (pango:pango_cairo_update_layout (slot-value *context* 'cairo::pointer) pango-layout)
+            (pango:pango_cairo_show_layout (slot-value *context* 'cairo::pointer) pango-layout)
+               (pango:g_object_unref pango-layout)))
+
 (defclass window ()
    (width (error "must supply width"))
    (height (error "must supply height"))
    (image-context nil)
    (event-queue nil)
-   (root-container nil)
-   
+
    (update ((window window))
       (cairo::refresh (image-context window)))
    
@@ -255,35 +285,11 @@
 
    (start-drawing ((window window))
       (iter (for x = (+ (get-internal-real-time) 20))
-            (when (root-container window)
-                  (with-context ((image-context window))
-                    (draw (root-container window)))
-                  (update window))
-                  (handle-events window)
-                  (iter (while (cairo::handle-event window)))
+            (handle-events window)
+            (update window)
+            (iter (while (cairo::handle-event window)))
             (let ((delay (/ (- x (get-internal-real-time)) 1000)))
                   (sleep (if (> delay 0) delay 0)))))
    
    (handle-events ((window window))
       (setf (event-queue window) nil)))
-
-(defclass container ()
-   (x 0)
-   (y 0)
-   (width 0)
-   (height 0)
-   (subcontainers nil)
-   
-   (draw (*this*)
-      (with-slots (subcontainers) this 
-         (when subcontainers
-           (iter (for c in subcontainers) (draw c)))))
-   
-   (:before draw (*this*)
-      (with-slots (x y width height) this 
-         (reset-clip)
-         (reset-trans-matrix)
-         (new-path)
-         (rectangle x y width height)
-         (clip)
-         (translate x y))))

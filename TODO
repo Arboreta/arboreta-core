@@ -1,0 +1,41 @@
+# Soon:
+
+* window resizing
+* arboreta-specific constructs for font, text, editable text, ect.
+* figure out how to get screen dimensions for wm mode so it's the right size
+
+# Near Future:
+
+* standard input handling and better evaluation, in a new thread
+* figure out how to interface with sbcl in such a way conditions can be displayed graphically
+* general interface primitives -- menus, items, ect.
+* drawing primitives -- color, shape, ect.
+* install script that auto-generates the sesssion manager and desktop files
+* listener REPL ala swank
+* symbol translation table layer
+* (discuss) importing/managing CL libraries, files
+* (discuss) "windowing"
+* keybindings object
+* (discuss) symbol translation table editor/navigator
+* (discuss) S-EXP/image/dependency editor/navigator
+* (discuss) debugger
+* (discuss) clipboard and text selection
+
+# Down the road:
+
+* import/exporting/navigating plaintext
+* Common Lisp Hyperspec import
+* symbol/context inspection -> hyperspec/debugging
+* macro recording/management
+* syntax highlighting
+* theming
+* state recording/garbage collector
+* symbol/sexp use analysis/statistics
+* autocomplete
+* QuickLisp documentation import
+* advanced Linux binds
+* genetic programming with symbol statistics
+* symbol categorization
+* contextual autocomplete
+* web browser
+* 3D interface/ricing
