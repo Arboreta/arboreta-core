@@ -1,8 +1,8 @@
 (ql:quickload 'arboreta-core)
 
-(in-package arboreta)
+(load "containers.cl")
 
-(setf *print-pretty* nil)
+(in-package arboreta)
 
 (defparameter window nil)
 (defparameter root nil)
@@ -11,16 +11,19 @@
 (defparameter default-font nil)
 (defparameter needs-update? t)
 
+(defparameter w 1200)
+(defparameter h 800)
+
 (defclass example-container (rect)
-   (width 600)
+   (width w)
    (height 50)
    
    (:after draw (*this*)
       (basic-write (format nil "#~a" (color this)) default-font "FFFFFF" 3 3)))
 
-(defclass example-window (window)
-   (width 600)
-   (height 400)
+(defclass example-window (container-window)
+   (width w)
+   (height h)
    
    (handle-events (*this*)
       (with-slots (event-queue) this
@@ -45,13 +48,14 @@
    (setf window (make-instance example-window))
    (setf default-font (pango:pango_font_description_from_string font-string))
    (setf (root-container window)
-      (rect :width 600 :height 400 :color "252E32"
-         (vertical-list :width 600 :height 400
+      (rect :width w :height h :color "252E32"
+         (vertical-list :width w :height h
             (make-instance example-container :color "8FC029")
             (make-instance example-container :color "DC2566")
             (make-instance example-container :color "55BCCE"))))
    (setf root (root-container window))
    (start-drawing window))
 
-(sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
+;; (sb-ext:save-lisp-and-die "test" :executable t :toplevel #'main)
+
 
