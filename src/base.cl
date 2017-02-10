@@ -172,7 +172,7 @@
          (setf graphics-context (xcreategc display this-window 0 (null-pointer)))
          ;; set size hints on window (hoping that window managers will
          ;; respect this)
-         (set-window-size-hints display this-window width width height height)
+         (set-window-size-hints display this-window 0 width 0 height)
          ;; intern atom for window closing, set protocol on window
 
          (setf wm-delete-window (xinternatom display "WM_DELETE_WINDOW" 1))

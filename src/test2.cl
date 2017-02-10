@@ -24,7 +24,5 @@
    (sb-thread:make-thread #'start-drawing :arguments (list window))
    (setf cairo::*context* (image-context window))
    (set-hex-color "DC2566")
-   (draw-rectangle 10 10 50 50))
-
-;; (sb-ext:save-lisp-and-die "test2" :executable t :toplevel #'main)
-
+   (draw-rectangle 10 10 50 50)
+   (fill-path))
